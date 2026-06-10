@@ -68,3 +68,54 @@ the 2–3 files/decisions to be ready to defend in an interview.
 3. Server-side filtering in `app/customers/page.tsx` (real Prisma `where`, not client filtering).
 
 ---
+
+## Phase 2 — Channel service + receipt loop (the centerpiece) ✅
+
+**Built**
+- **`apps/channel-service`** (Express + TS): `POST /send` → 202 + enqueue; in-memory FIFO `Queue`
+  drained by a long-running `DeliveryWorker` with **bounded concurrency**. Per message the
+  `simulator` rolls **channel-differentiated probabilities** (one config object) to decide how
+  far it gets, materialises one event per stage with **monotonic `occurredAt`** but
+  **independent random dispatch delays (2–10s)** → callbacks arrive OUT OF ORDER. `receipts-client`
+  POSTs each to the CRM with **4-retry exponential backoff (0.5/1/2/4s)**; permanent 4xx or
+  exhausted retries → **in-memory dead-letter**. `GET /health` (throughput metrics), `GET
+  /dead-letter`, `POST /send/batch`, `POST /stress?count=N`.
+- **CRM `POST /api/receipts`** (`lib/receipts.ts`): Zod-validated, **idempotent** (insert
+  CommunicationEvent unique on `providerEventId`; duplicate → no-op 200), re-derives status via
+  the **pure reducer**, and on first reach of CONVERTED creates exactly one attributed Order +
+  rolls up customer LTV/orders. When all comms settle → campaign auto-**COMPLETED**.
+- **`lib/reducer.ts`** — pure, zero-runtime-dep state machine: status = max rank over the whole
+  event log, so out-of-order + duplicates are correct by construction. FAILED terminal unless
+  delivery is proven.
+- **`POST /api/stress`** provisions a real synthetic campaign of N comms across all channels so
+  the stress test flows through the genuine pipeline (funnel + analytics actually move).
+
+**Verified end to end (against running services + local Postgres)**
+- 80-message run: 236 events delivered, 0 dead-lettered, clean funnel decay, all comms settled →
+  campaign COMPLETED.
+- Conversion path: hand-drove a comm to CONVERTED → 1 attributed order, customer LTV 18,200 →
+  22,200, orders 4 → 5. **Re-posting the same CONVERTED event → deduped, NO second order / no
+  double LTV** (idempotency proven).
+- Out-of-order through the endpoint: READ posted before DELIVERED → status stays READ.
+- 404 (unknown comm) / 400 (bad payload) handled. Permanent 404 from a ghost comm → dead-lettered
+  with 0 retries.
+- **Tests:** reducer 11/11 (incl. out-of-order, duplicate, commutativity); channel-service 6/6
+  (channel-aware rates ±4%, retry→success, persistent-500→dead-letter, permanent-404 no-retry).
+
+**Key decisions**
+- **Event log + pure reducer** instead of mutating status per event — the whole reason
+  out-of-order/duplicate handling is trivial and testable. This is the system's spine.
+- **Idempotency at two layers**: DB unique on `providerEventId` (no duplicate events) + "one
+  attributed order per communication" guard (no double revenue) — survives the channel's retries.
+- **Permanent vs transient errors**: 4xx (except 408/429) don't retry — retrying a 404 is waste.
+  Deviates slightly from "retry any non-2xx" in the spec; it's the more correct behaviour.
+- **`final` flag from the provider** signals end-of-lifecycle → cheap, exact campaign-completion
+  (no time-based guessing). Real providers send terminal receipts; this mirrors that.
+
+**Defend in interview**
+1. `apps/crm/src/lib/reducer.ts` + `reducer.test.ts` — why deriving from the log beats mutating.
+2. `apps/crm/src/lib/receipts.ts` — the two-layer idempotency and the attributed-order rollup.
+3. `apps/channel-service/src/queue.ts` + `receipts-client.ts` — long-running worker (why not
+   serverless) + retry/backoff/dead-letter reliability.
+
+---

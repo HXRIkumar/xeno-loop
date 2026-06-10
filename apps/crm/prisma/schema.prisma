@@ -128,6 +128,7 @@ model Communication {
   renderedMessage String
   channel         Channel
   status          CommStatus @default(QUEUED) // derived by the reducer from events
+  settledAt       DateTime? // set when the provider sends the lifecycle's final event
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -151,6 +152,7 @@ model CommunicationEvent {
   type            CommStatus
   occurredAt      DateTime // when the channel says it happened
   receivedAt      DateTime   @default(now()) // when the CRM ingested it
+  final           Boolean    @default(false) // provider signal: last event in this comm's lifecycle
 
   communication Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
 
