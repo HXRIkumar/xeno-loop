@@ -1,0 +1,21 @@
+{
+  "name": "xeno-loop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Loop — an AI marketing co-pilot that closes the revenue loop (Xeno Mini CRM take-home).",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "echo 'Run two terminals: npm run dev:crm  and  npm run dev:channel'",
+    "dev:crm": "npm --workspace apps/crm run dev",
+    "dev:channel": "npm --workspace apps/channel-service run dev",
+    "build": "npm --workspace apps/crm run build && npm --workspace apps/channel-service run build",
+    "test": "npm --workspace apps/crm run test --if-present && npm --workspace apps/channel-service run test --if-present",
+    "db:migrate": "npm --workspace apps/crm run db:migrate",
+    "db:seed": "npm --workspace apps/crm run db:seed"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
