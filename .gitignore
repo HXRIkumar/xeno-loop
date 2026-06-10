@@ -37,3 +37,8 @@ yarn-error.log*
 *.tsbuildinfo
 .turbo/
 coverage/
+
+# ---- Local install cache / tmp (repo-local to dodge a sandbox cache-perm quirk) ----
+.npm-cache/
+.tmp/
+next-env.d.ts

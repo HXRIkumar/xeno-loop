@@ -1,0 +1,167 @@
+// Loop — Xeno Mini CRM data model.
+// Runtime uses the POOLED url (pgbouncer); migrations use the DIRECT url.
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------- Enums ----------
+
+enum Persona {
+  HIGH_SPENDER
+  DORMANT
+  NEW
+  DISCOUNT_HUNTER
+  BRAND_LOYAL
+}
+
+enum Channel {
+  WHATSAPP
+  SMS
+  EMAIL
+  RCS
+}
+
+enum OrderChannel {
+  ONLINE
+  OFFLINE
+}
+
+enum CampaignStatus {
+  PROPOSED
+  APPROVED
+  SENDING
+  COMPLETED
+  FAILED
+}
+
+// Communication lifecycle. Also reused as the CommunicationEvent.type (each event is a
+// lifecycle signal). Rank order (for the reducer): QUEUED < SENT < DELIVERED < OPENED <
+// READ < CLICKED < CONVERTED. FAILED is terminal-unless-superseded (see lib/reducer.ts).
+enum CommStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  READ
+  CLICKED
+  CONVERTED
+  FAILED
+}
+
+// ---------- Models ----------
+
+model Customer {
+  id               String    @id @default(cuid())
+  name             String
+  email            String    @unique
+  phone            String
+  persona          Persona
+  ltv              Int       @default(0) // lifetime value in whole INR (derived from orders)
+  totalOrders      Int       @default(0)
+  lastOrderDate    DateTime?
+  preferredChannel Channel
+  createdAt        DateTime  @default(now())
+
+  orders         Order[]
+  communications Communication[]
+
+  @@index([persona])
+  @@index([preferredChannel])
+}
+
+model Order {
+  id           String       @id @default(cuid())
+  customerId   String
+  amount       Int // whole INR
+  category     String
+  channel      OrderChannel @default(ONLINE)
+  createdAt    DateTime     @default(now())
+
+  // Last-touch attribution: set when an order is created off a CONVERTED communication.
+  attributedCommunicationId String?
+
+  customer                Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  attributedCommunication Communication? @relation(fields: [attributedCommunicationId], references: [id])
+
+  @@index([customerId])
+  @@index([attributedCommunicationId])
+  @@index([createdAt])
+}
+
+model Segment {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  filterJson  Json // the SegmentFilter shape (persona, recencyDays, frequency, ltv bounds, channel)
+  createdAt   DateTime @default(now())
+}
+
+model Campaign {
+  id                  String         @id @default(cuid())
+  name                String
+  goal                String
+  segmentSnapshotJson Json // frozen filter + audience the campaign targeted
+  audienceSize        Int            @default(0)
+  messageTemplate     String
+  channel             Channel
+  expectedImpactJson  Json? // agent's predicted impact (open/click/convert/revenue)
+  reasoningJson       Json? // agent's shown reasoning + the data it pulled
+  status              CampaignStatus @default(PROPOSED)
+  createdAt           DateTime       @default(now())
+
+  communications Communication[]
+
+  @@index([status])
+}
+
+model Communication {
+  id              String     @id @default(cuid())
+  campaignId      String
+  customerId      String
+  renderedMessage String
+  channel         Channel
+  status          CommStatus @default(QUEUED) // derived by the reducer from events
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  campaign         Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer         Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  events           CommunicationEvent[]
+  attributedOrders Order[] // orders attributed to this communication
+
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([status])
+}
+
+// Append-only event log. Source of truth for idempotency (providerEventId UNIQUE) and
+// ordering. The reducer derives Communication.status from ALL events of a communication,
+// so out-of-order delivery is naturally correct.
+model CommunicationEvent {
+  id              String     @id @default(cuid())
+  communicationId String
+  providerEventId String     @unique // idempotency key from the channel service
+  type            CommStatus
+  occurredAt      DateTime // when the channel says it happened
+  receivedAt      DateTime   @default(now()) // when the CRM ingested it
+
+  communication Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
+
+  @@index([communicationId])
+}
+
+model AgentRun {
+  id           String   @id @default(cuid())
+  prompt       String
+  decisionJson Json // what the agent decided / proposed
+  reasoningJson Json // the reasoning trace + tool calls
+  provider     String // which LLM provider produced this run (e.g. "gemini")
+  createdAt    DateTime @default(now())
+}
