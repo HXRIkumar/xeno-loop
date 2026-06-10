@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import type { Channel, CampaignStatus, CommStatus } from "@prisma/client";
+import { cumulativeFunnel, rate } from "@/lib/funnel-math";
+import type { Channel, CampaignStatus } from "@prisma/client";
 
 export type FunnelStage = {
   key: "sent" | "delivered" | "opened" | "read" | "clicked" | "converted";
@@ -24,8 +25,6 @@ export type CampaignFunnel = {
   attributedRevenue: number;
 };
 
-const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
-
 /**
  * Compute the funnel for one campaign. Status is the FURTHEST stage a comm reached, so each
  * funnel level is the cumulative count at-or-beyond it. A FAILED comm WAS sent but never
@@ -47,32 +46,23 @@ export async function computeCampaignFunnel(campaignId: string): Promise<Campaig
     }),
   ]);
 
-  const c = (s: CommStatus) => grouped.find((g) => g.status === s)?._count ?? 0;
-  const total = grouped.reduce((acc, g) => acc + g._count, 0);
-
-  const converted = c("CONVERTED");
-  const clicked = converted + c("CLICKED");
-  const read = clicked + c("READ");
-  const opened = read + c("OPENED");
-  const delivered = opened + c("DELIVERED");
-  const queued = c("QUEUED");
-  const failed = c("FAILED");
-  const sent = total - queued; // everything dispatched, including FAILED
+  const counts = Object.fromEntries(grouped.map((g) => [g.status, g._count]));
+  const f = cumulativeFunnel(counts);
 
   const stages: FunnelStage[] = [
-    { key: "sent", label: "Sent", count: sent, rateOfSent: 100 },
-    { key: "delivered", label: "Delivered", count: delivered, rateOfSent: pct(delivered, sent) },
-    { key: "opened", label: "Opened", count: opened, rateOfSent: pct(opened, sent) },
-    { key: "read", label: "Read", count: read, rateOfSent: pct(read, sent) },
-    { key: "clicked", label: "Clicked", count: clicked, rateOfSent: pct(clicked, sent) },
-    { key: "converted", label: "Converted", count: converted, rateOfSent: pct(converted, sent) },
+    { key: "sent", label: "Sent", count: f.sent, rateOfSent: 100 },
+    { key: "delivered", label: "Delivered", count: f.delivered, rateOfSent: rate(f.delivered, f.sent) },
+    { key: "opened", label: "Opened", count: f.opened, rateOfSent: rate(f.opened, f.sent) },
+    { key: "read", label: "Read", count: f.read, rateOfSent: rate(f.read, f.sent) },
+    { key: "clicked", label: "Clicked", count: f.clicked, rateOfSent: rate(f.clicked, f.sent) },
+    { key: "converted", label: "Converted", count: f.converted, rateOfSent: rate(f.converted, f.sent) },
   ];
 
   return {
     campaign,
-    total,
-    queued,
-    failed,
+    total: f.total,
+    queued: f.queued,
+    failed: f.failed,
     stages,
     attributedOrders: attribution._count,
     attributedRevenue: attribution._sum.amount ?? 0,

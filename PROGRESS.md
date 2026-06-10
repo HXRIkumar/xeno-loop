@@ -161,3 +161,39 @@ the 2–3 files/decisions to be ready to defend in an interview.
 3. `lib/segment.ts` — one filter language shared by the manual UI and the agent.
 
 ---
+
+## Phase 4 — Attribution + analytics + insights ✅
+
+**Built**
+- **`lib/funnel-math.ts`** — pure `cumulativeFunnel` + `funnelRates` + `rate`, extracted so the
+  math is unit-tested independently and shared by the campaign funnel AND analytics (DRY). Refactored
+  `lib/funnel.ts` to use it.
+- **`lib/analytics.ts`** — rollups: `channelPerformance` (per-channel funnel + attributed revenue),
+  `overallFunnel`, `personaDistribution`, `revenueSplit` (attributed vs organic), `revenueByMonth`
+  (12-mo time series), `campaignPerformance`, and `getInsights()` bundling them + a plain-language
+  `headline` for the agent.
+- **`/analytics`** (Recharts): channel-performance combo chart (convert-rate line + attributed-revenue
+  bars), overall funnel bar, persona distribution, revenue-over-time line, a precise channel table,
+  and revenue-split KPI cards.
+- **`GET /api/insights`** — the same numbers as JSON; the agent's `get_past_performance` reads this.
+
+**Verified**
+- Unit tests: `funnel-math` 6/6 (cumulative correctness, monotonicity, NaN-safe rates) → 17 total.
+- Live data after a 200-msg stress run across all channels: WhatsApp 4% convert / ₹9.7k, RCS 2% /
+  ₹10.8k, SMS·Email lower — **real channel differences**. Analytics page renders all four charts;
+  `import type` keeps Prisma out of the client bundle (no boundary error).
+
+**Key decisions**
+- **Substituted "revenue over time" for the spec's literal "status over time" line** — with the
+  time-compressed sim, an events-over-time line is a spike at "now"; monthly attributed-vs-organic
+  revenue is genuinely informative and showcases the learning loop. (Noted as a deliberate choice.)
+- **Attribution = sum of Orders whose `attributedCommunicationId` belongs to the campaign/channel**
+  — last-touch within the window; organic = everything else. Simple, exact, defensible.
+- **Pure math core** so attribution/funnel numbers are testable without a DB and reused everywhere.
+
+**Defend in interview**
+1. `lib/funnel-math.ts` + `funnel-math.test.ts` — the tested attribution/funnel math.
+2. `lib/analytics.ts#channelPerformance` — how channel differences become real, learnable signal.
+3. `/api/insights` — the bridge from analytics to the agent's learning loop.
+
+---
