@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Users, IndianRupee, MoonStar, ShoppingBag, ArrowRight } from "lucide-react";
+import { Users, IndianRupee, MoonStar, ShoppingBag, ArrowRight, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { PERSONA_LABEL, PERSONAS } from "@/lib/display";
 import { inr } from "@/lib/utils";
+import { getOpportunities } from "@/lib/agent/opportunities";
 
 export const dynamic = "force-dynamic";
 
@@ -34,11 +35,12 @@ function Kpi({
 }
 
 export default async function DashboardPage() {
-  const [total, agg, dormant, personaCounts] = await Promise.all([
+  const [total, agg, dormant, personaCounts, opportunities] = await Promise.all([
     prisma.customer.count(),
     prisma.customer.aggregate({ _sum: { ltv: true, totalOrders: true } }),
     prisma.customer.count({ where: { persona: "DORMANT" } }),
     prisma.customer.groupBy({ by: ["persona"], _count: true, _sum: { ltv: true } }),
+    getOpportunities(),
   ]);
 
   const totalLtv = agg._sum.ltv ?? 0;
@@ -55,6 +57,33 @@ export default async function DashboardPage() {
       />
 
       <div className="space-y-6 p-8">
+        {/* Opportunities Loop spotted in the data — click to have the agent propose one */}
+        {opportunities.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Opportunities Loop spotted
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {opportunities.map((o) => (
+                <Card key={o.id} className="flex flex-col border-primary/20">
+                  <CardContent className="flex flex-1 flex-col gap-2 p-5">
+                    <div className="font-medium">{o.title}</div>
+                    <p className="flex-1 text-sm text-muted-foreground">{o.description}</p>
+                    <div className="text-xs font-medium text-primary">{o.metric}</div>
+                    <Link
+                      href={`/loop?prompt=${encodeURIComponent(o.prompt)}`}
+                      className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                    >
+                      Ask Loop to build this <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Kpi icon={Users} label="Customers" value={String(total)} />
           <Kpi icon={IndianRupee} label="Lifetime value" value={inr(totalLtv)} />
@@ -104,13 +133,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <div className="rounded-xl border border-dashed bg-card/40 p-6 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">The Loop agent goes here.</p>
-          <p className="mt-1">
-            In Phase 5 the dashboard proactively surfaces 2–3 revenue opportunities the agent
-            computed from this data — each one a campaign you can approve in a click.
-          </p>
-        </div>
       </div>
     </div>
   );

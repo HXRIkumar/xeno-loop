@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { CampaignStatusBadge, ChannelBadge } from "@/components/badges";
 import { CampaignActions } from "@/components/campaign-actions";
 import { CampaignFunnel } from "@/components/campaign-funnel";
+import { CampaignSummary } from "@/components/campaign-summary";
 import { Card, CardContent } from "@/components/ui/card";
 import { SegmentFilterSchema, describeFilter } from "@/lib/segment";
 import { renderMessage } from "@/lib/render";
@@ -93,6 +94,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
           {/* The explainable proposal — why the agent (or marketer) chose this */}
           <div className="space-y-6">
+            {campaign.status === "COMPLETED" && <CampaignSummary campaignId={campaign.id} />}
             {(reasoning?.summary || (reasoning?.dataPoints?.length ?? 0) > 0) && (
               <Card className="border-primary/30 bg-primary/[0.03]">
                 <CardContent className="space-y-3 p-6">

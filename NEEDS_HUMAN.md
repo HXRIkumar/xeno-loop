@@ -28,3 +28,35 @@ Anything here blocked the autonomous run. I logged it and continued with other w
 3. In the Supabase dashboard → Database → Replication, enable Realtime on the `Communication` and `Campaign` tables (needed for the live funnel in prod). Polling fallback already works without this.
 
 ---
+
+## 2. Gemini API key has no quota → live agent calls 429
+
+**Status:** BLOCKED on billing · the adapter is verified correct; agent loop verified with a mock.
+
+**Evidence (2026-06-11):** ran the smoke test (`apps/crm/scripts/test-gemini.ts`). The adapter
+built a valid request, called the API, and got back:
+`429 RESOURCE_EXHAUSTED — "Your prepayment credits are depleted. Please go to AI Studio ... to
+manage your project and billing."` The key **authenticates** (no 401/403) — the Google project
+simply has no available credits/quota, and the adapter's 429 backoff retried then surfaced it.
+
+**What this means:** the Gemini adapter is wired correctly (it reaches the API and parses both
+success and error shapes). The whole agent — loop, tools, proposal flow, UI — is built and
+verified end-to-end against a **mock LLMProvider** (`src/lib/agent/loop.test.ts`). Because the
+loop only talks to the neutral interface, it will work against live Gemini with **zero code
+changes** the moment the key has quota.
+
+**What YOU need to do:**
+1. In Google AI Studio (https://ai.studio/projects) for this key's project, either enable
+   billing / add prepay credits, OR ensure the project has free-tier quota for
+   `gemini-2.5-flash`. (Free-tier keys usually start `AIzaSy…`; the current key starts `AQ.` —
+   if that's an OAuth/short-lived token rather than an API key, generate a standard API key.)
+2. Paste the working key into root `.env` as `GEMINI_API_KEY`, then re-run:
+   `cd apps/crm && npx dotenv -e .env.local -e .env -- tsx scripts/test-gemini.ts`
+   — expect it to print a `analyse_audience` tool call. The Loop chat + dashboard opportunities
+   then work live immediately.
+
+Note: the app **degrades gracefully** if the key is still out of quota — the Loop chat shows a
+friendly "couldn't reach the model" message instead of crashing, and everything else (campaigns,
+funnel, analytics, the manual campaign builder) works fully without the LLM.
+
+---

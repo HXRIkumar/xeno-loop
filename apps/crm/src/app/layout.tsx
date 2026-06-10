@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
+import { FloatingLoop } from "@/components/floating-loop";
 
 export const metadata: Metadata = {
   title: "Loop — AI Marketing Co-Pilot",
@@ -26,6 +27,7 @@ export default function RootLayout({
           <Sidebar />
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
+        <FloatingLoop />
       </body>
     </html>
   );

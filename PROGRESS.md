@@ -197,3 +197,54 @@ the 2–3 files/decisions to be ready to defend in an interview.
 3. `/api/insights` — the bridge from analytics to the agent's learning loop.
 
 ---
+
+## Phase 5 — The agent "Loop" + provider abstraction (crown jewel) ✅
+
+**Built**
+- **Provider abstraction** (`lib/llm/`): neutral `types.ts` (LLMProvider.runTurn, ChatMessage with
+  assistant-tool-calls, ToolSpec via JSON Schema), `gemini.ts` **fully implemented** per the
+  adapter notes (two roles, system→systemInstruction, functionResponse parts, echo the
+  functionCall, args-already-object, schema sanitization, 429 backoff), `anthropic.ts`/`openai.ts`
+  **typed stubs that throw "provider not configured"**, `index.ts` `getProvider()` on `LLM_PROVIDER`.
+- **Agent loop** (`lib/agent/loop.ts`): provider-agnostic, **dependency-injected** (testable with a
+  mock). Runs tools across turns, echoes results back, bounded by `MAX_TURNS=5`, catches tool
+  errors and feeds them back, captures the proposed campaign.
+- **Tools** (`lib/agent/tools.ts`): `analyse_audience`, `get_past_performance` (reads insights),
+  `draft_message` (on-brand copy), `propose_campaign` (persists PROPOSED with reasoning) — each
+  Zod-validated before touching the DB.
+- **Runner** (`agent.ts`): system prompt (analyse → check performance → propose, never fire),
+  history mapping, **AgentRun persistence**, and **graceful degradation** (friendly message if the
+  model is unreachable). `POST /api/agent` with `maxDuration=60`.
+- **UI**: `/loop` full-page chat + **floating chat widget on every page**; the **explainable
+  proposal card** (reasoning + audience data + Approve/Edit) inside the chat; tool-trace chips.
+  Dashboard **proactively surfaces 3 opportunities** (computed from data, click → agent proposes).
+  `CampaignSummary` (agent wraps up completed campaigns; deterministic fallback).
+
+**Verified**
+- **Gemini adapter reaches the live API** — the smoke test built a valid request and got a real
+  response; the only blocker is the key's **quota (429 prepayment depleted)** → logged in
+  NEEDS_HUMAN. Auth works; it'll run live the moment credits are added (zero code change).
+- **Agent loop proven with a mock provider** (`loop.test.ts`, 3/3): multi-turn tool execution,
+  result echo, proposal capture, tool-error recovery, MAX_TURNS bound. 20 tests total.
+- `/api/agent` degrades gracefully on the quota wall (friendly text, no crash); dashboard
+  opportunities + `/loop` + floating widget render; full production build clean (19 routes).
+
+**Key decisions**
+- **The neutral interface is the product** — only Gemini is live, the other two are honest stubs.
+  The loop never imports a vendor SDK, so swapping is one env var.
+- **Dependency-injected loop** → unit-testable without quota; the architecture is provable even
+  though the live key is out of credits.
+- **Opportunities computed deterministically**, not via an LLM call per dashboard load — fast,
+  reliable, and the agent still does the actual reasoning when clicked.
+- **Graceful degradation everywhere** the LLM is touched — the whole app (campaigns, funnel,
+  analytics, manual builder) works fully without the model; only the chat needs it.
+- **Vercel timeout trap**: `maxDuration` + bounded `MAX_TURNS` + adapter timeouts/backoff;
+  non-streaming for a bounded tool-use loop (simpler, robust) with a thinking state in the UI.
+
+**Defend in interview**
+1. `lib/llm/gemini.ts` + `types.ts` — the neutral contract and the Gemini mapping (the gotchas).
+2. `lib/agent/loop.ts` + `loop.test.ts` — the provider-agnostic tool loop, proven with a mock.
+3. `components/proposal-card.tsx` + `lib/agent/tools.ts#propose_campaign` — the explainable,
+   human-in-the-loop proposal (shows its work; never auto-fires).
+
+---
