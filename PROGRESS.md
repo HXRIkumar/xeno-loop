@@ -119,3 +119,45 @@ the 2–3 files/decisions to be ready to defend in an interview.
    serverless) + retry/backoff/dead-letter reliability.
 
 ---
+
+## Phase 3 — Campaigns + fire + LIVE funnel ✅
+
+**Built**
+- **Segment model** (`lib/segment.ts`): a `SegmentFilter` (personas, recency days, LTV bounds,
+  frequency, preferred channel) → Prisma where-clause. `previewSegment()` returns count + stats +
+  sample; `describeFilter()` gives a human label. Shared by the manual builder AND the agent's
+  audience tool. `POST /api/segments/preview`.
+- **Campaign lifecycle** (`lib/campaigns.ts`): `createCampaign` (→ PROPOSED, audience size frozen),
+  `approveCampaign` (PROPOSED→APPROVED guard), `fireCampaign` (APPROVED-only: resolve audience
+  fresh, render per-customer messages, persist QUEUED comms + flip to SENDING in one tx, then hand
+  the batch to the channel service). Routes: `POST /api/campaigns`, `/[id]/approve`, `/[id]/fire`.
+- **Live funnel**: `GET /api/campaigns/[id]/funnel` (cumulative stage counts + rates + attributed
+  revenue). `useCampaignFunnel` hook = **Supabase Realtime primary, 3s polling fallback** behind
+  `NEXT_PUBLIC_REALTIME_ENABLED`; stops when the campaign is terminal. Funnel UI with a live-mode
+  pill, animated bars, attributed revenue/orders.
+- **UI**: `/campaigns` list, `/campaigns/new` manual builder (filter → audience preview → message
+  template), `/campaigns/[id]` detail (proposal view pre-fire incl. agent reasoning slot; live
+  funnel post-fire) with Approve/Fire actions (human-in-the-loop).
+
+**Verified end to end**
+- preview (34 dormant ≥₹10k) → create (PROPOSED) → fire-before-approve **409** → approve → fire
+  (34 sent, SENDING). Funnel polled live: sent 0→17→31→36→38→40, delivered tracking behind,
+  auto-flips to **COMPLETED**; attributed revenue appeared. All UI pages render 200.
+
+**Key decisions**
+- **Audience re-resolved at fire time** from the stored filter (not a frozen customer list) — the
+  campaign targets the segment, so late-qualifying customers are included; `audienceSize` is just
+  the snapshot estimate.
+- **Realtime as a "refetch" signal**, not the data source: the authoritative funnel always comes
+  from the REST aggregate; Realtime/polling just decide *when* to refetch. Robust + identical UI
+  in both modes. (Local runs poll because local-PG changes aren't visible to Supabase Realtime.)
+- **Fire creates rows + flips status in a transaction before dispatching** — a channel hiccup can
+  never leave a SENDING campaign with no communications.
+
+**Defend in interview**
+1. `lib/campaigns.ts#fireCampaign` — the APPROVED guard, the transaction, and the BullMQ/SQS note.
+2. `hooks/use-campaign-funnel.ts` — Realtime-primary / polling-fallback and why REST stays the
+   source of truth.
+3. `lib/segment.ts` — one filter language shared by the manual UI and the agent.
+
+---

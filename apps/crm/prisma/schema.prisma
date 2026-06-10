@@ -110,6 +110,7 @@ model Campaign {
   segmentSnapshotJson Json // frozen filter + audience the campaign targeted
   audienceSize        Int            @default(0)
   messageTemplate     String
+  offer               String? // the promo substituted into the {offer} placeholder
   channel             Channel
   expectedImpactJson  Json? // agent's predicted impact (open/click/convert/revenue)
   reasoningJson       Json? // agent's shown reasoning + the data it pulled
