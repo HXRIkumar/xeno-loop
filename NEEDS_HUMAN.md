@@ -2,11 +2,22 @@
 
 Anything here blocked the autonomous run. I logged it and continued with other work.
 
+> **UPDATE 2026-06-12 — both items below are RESOLVED.** (1) Switched off the blocking Wi-Fi
+> onto a phone hotspot, which allows outbound 5432/6543; the Supabase schema is migrated + seeded
+> (verified: 200 customers / 880 orders, queried live over the hotspot). (2) Switched the live LLM
+> provider to **Groq** (free, fast, OpenAI-compatible) — no more quota wall. Details inline.
+
 ---
 
 ## 1. This network blocks outbound Postgres ports (6543 / 5432) → can't reach Supabase DB from here
 
-**Status:** BLOCKED tonight · worked around with a local Postgres for verification.
+**Status:** ✅ RESOLVED (2026-06-12) — connected via a phone hotspot; Supabase migrated + seeded.
+Originally BLOCKED on the build network · worked around with a local Postgres for verification.
+
+**Resolution (2026-06-12):** on a phone hotspot, `aws-1-ap-south-1.pooler.supabase.com:5432` and
+`:6543` are reachable. Ran `prisma migrate deploy` + `prisma db seed` against Supabase; a live
+read confirms **200 customers / 880 orders** in the Supabase project. Local Docker Postgres (5433)
+remains the convenient offline verification DB; flip targets by toggling root `.env.local`.
 
 **Evidence (gathered 2026-06-10):**
 - Supabase project is alive: `https://mkhevswlifzasrhsnojt.supabase.co/rest/v1/` returns HTTP 401 over 443 (expected — auth required). DNS for the pooler resolves to AWS IPs.
@@ -31,7 +42,18 @@ Anything here blocked the autonomous run. I logged it and continued with other w
 
 ## 2. Gemini API key has no quota → live agent calls 429
 
-**Status:** BLOCKED on billing · the adapter is verified correct; agent loop verified with a mock.
+**Status:** ✅ RESOLVED (2026-06-12) — live provider switched to **Groq** (free, OpenAI-compatible);
+no billing needed. Originally BLOCKED on Gemini billing.
+
+**Resolution (2026-06-12):** Groq's API is OpenAI-compatible, so the existing OpenAI adapter is now
+the live one, pointed at `https://api.groq.com/openai/v1` (model `llama-3.3-70b-versatile`, key
+`GROQ_API_KEY`). `LLM_PROVIDER=groq`. The neutral `LLMProvider` interface and the agent loop are
+unchanged — the swap was one env var. Verified live: the smoke test (`scripts/test-llm.ts`) gets a
+real tool call back from Groq, and a full `/api/agent` e2e runs the tool loop (analyse_audience →
+get_past_performance → propose_campaign) against the seeded DB and returns an explainable proposal.
+Gemini stays selectable (`LLM_PROVIDER=gemini`) for the moment its key has
+quota; Anthropic remains an honest typed stub. (Original Gemini-quota evidence kept below for the
+record.)
 
 **Evidence (2026-06-11):** ran the smoke test (`apps/crm/scripts/test-gemini.ts`). The adapter
 built a valid request, called the API, and got back:

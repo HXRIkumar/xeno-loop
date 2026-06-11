@@ -117,11 +117,16 @@ export class OpenAIProvider implements LLMProvider {
     const body = {
       model: this.model,
       messages: buildMessages(input.system, input.messages),
-      ...(tools && { tools, tool_choice: "auto" as const }),
+      // parallel_tool_calls:false forces ONE tool per turn so the loop genuinely chains —
+      // the model sees analyse_audience / get_past_performance RESULTS before it proposes, so the
+      // proposal cites real numbers and the data-supported channel (not batched-then-invented).
+      ...(tools && { tools, tool_choice: "auto" as const, parallel_tool_calls: false }),
     };
 
     let lastErr: unknown;
-    // up to MAX_RETRIES retries; 429s respect Retry-After, transient network errors back off exponentially
+    // up to MAX_RETRIES retries. Retriable: 429 (respect Retry-After), transient network errors,
+    // and Groq's 400 `tool_use_failed` (llama occasionally emits a malformed tool call — re-sampling
+    // fixes it), all with exponential fallback backoff.
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       let res: Response;
       try {
@@ -139,16 +144,19 @@ export class OpenAIProvider implements LLMProvider {
         throw e;
       }
 
-      if (res.status === 429 && attempt < MAX_RETRIES) {
-        const retryAfter = res.headers.get("retry-after");
-        const fromHeader = retryAfter ? Math.ceil(parseFloat(retryAfter) * 1000) : NaN;
-        const waitMs = Number.isFinite(fromHeader) && fromHeader > 0 ? fromHeader : 1000 * 2 ** attempt;
-        await sleep(waitMs);
-        continue;
-      }
-
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
+        const isToolUseFailed = res.status === 400 && /tool_use_failed|Failed to call a function/i.test(errText);
+        const retriable = res.status === 429 || isToolUseFailed;
+        if (retriable && attempt < MAX_RETRIES) {
+          const retryAfter = res.headers.get("retry-after");
+          const fromHeader = retryAfter ? Math.ceil(parseFloat(retryAfter) * 1000) : NaN;
+          // tool_use_failed isn't rate-limiting — just re-sample quickly; honor Retry-After for 429s
+          const waitMs = Number.isFinite(fromHeader) && fromHeader > 0 ? fromHeader : 400 * 2 ** attempt;
+          await sleep(waitMs);
+          lastErr = new Error(`${this.name} API ${res.status}: ${errText.slice(0, 200)}`);
+          continue;
+        }
         throw new Error(`${this.name} API error ${res.status}: ${errText.slice(0, 500)}`);
       }
 

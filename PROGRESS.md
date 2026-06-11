@@ -248,3 +248,39 @@ the 2–3 files/decisions to be ready to defend in an interview.
    human-in-the-loop proposal (shows its work; never auto-fires).
 
 ---
+
+## Post-build (2026-06-12) — both blockers cleared + live agent hardened on Groq
+
+**Blockers resolved** (see NEEDS_HUMAN.md)
+- **DB.** Switched off the blocking Wi-Fi onto a phone hotspot (allows outbound 5432/6543);
+  Supabase is migrated + seeded — verified **200 customers / 880 orders** live. Local Docker
+  Postgres (5433) stays as the offline verification DB; toggle via root `.env.local`.
+- **LLM.** Live provider switched **Gemini → Groq** (free, fast). Groq is OpenAI-compatible, so the
+  existing OpenAI adapter became the live one (`lib/llm/openai.ts`, fetch-based, no SDK) pointed at
+  `api.groq.com/openai/v1`, model `llama-3.3-70b-versatile`. `getProvider()` gained `groq`; the
+  neutral interface and the agent loop were untouched — a one-env-var swap. Gemini stays selectable;
+  Anthropic stays a typed stub.
+
+**Live e2e of `/api/agent` + Loop (against seeded DB + live Groq) — what it proved AND fixed**
+- ✅ Full tool loop runs end to end: model → `analyse_audience` → `get_past_performance` →
+  `draft_message` → `propose_campaign`, each executed against the seeded DB with results fed back,
+  then a final reply + a persisted PROPOSED campaign. **5/5 runs** clean after the fixes below.
+- ✅ Approve path (the proposal card's button → `POST /api/campaigns/[id]/approve`) flips
+  PROPOSED→APPROVED. Dashboard opportunities server-render (all three cards present in HTML).
+- 🐛→✅ **Bug 1 — invented numbers / wrong channel.** llama batched all tool calls in ONE turn, so
+  `propose_campaign` ran before seeing the data tools' results: it cited fake numbers (avg LTV
+  "₹5000" vs real **₹47,757**) and picked WhatsApp (0% convert) over the data-best **RCS** (4%).
+  Fix: `parallel_tool_calls:false` in the adapter request → the loop genuinely chains, so proposals
+  now cite real numbers and pick the data-supported channel (RCS, every run).
+- 🐛→✅ **Bug 2 — transient `tool_use_failed` hard-failed the run.** Groq's llama occasionally emits
+  a malformed `<function=…>` call; Groq returns 400 `tool_use_failed`. The adapter only retried
+  429s, so a single blip killed the whole agent turn (~2/3 of runs). Fix: treat `tool_use_failed`
+  400 as transient and re-sample (same retry path as 429). Reliability went 1/3 → 5/5.
+- 🧹 Also fixed a stale graceful-degradation string that still named "the Gemini key is out of
+  quota" — now provider-neutral ("it's rate-limited").
+
+**Note:** sequential tool-calling is slower than batched (≈30–46s vs ≈3.5s on Groq's free tier
+under load) but stays within the `maxDuration=60` guard + `MAX_TURNS=5` bound — correctness
+(grounded, explainable proposals) is worth the latency. tsc + eslint clean; 20/20 unit tests pass.
+
+---

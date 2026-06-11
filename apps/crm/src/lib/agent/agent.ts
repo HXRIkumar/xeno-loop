@@ -68,7 +68,7 @@ export async function runAgent(input: {
     const isQuota = /429|RESOURCE_EXHAUSTED|quota|rate/i.test(message);
     return {
       finalText: isQuota
-        ? "I couldn't reach the model right now (the Gemini key is out of quota). Everything else in Loop works — you can still build and fire campaigns manually from the Campaigns tab."
+        ? "I couldn't reach the model right now (it's rate-limited). Everything else in Loop works — you can still build and fire campaigns manually from the Campaigns tab."
         : "I hit an error reaching the model. Please try again in a moment.",
       proposedCampaign: null,
       toolTrace: [],
