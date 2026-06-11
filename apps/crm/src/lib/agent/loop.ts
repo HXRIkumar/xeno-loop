@@ -9,6 +9,8 @@
  */
 import type { ChatMessage, LLMProvider } from "@/lib/llm";
 import type { Tool } from "./tools";
+import { summarizeToolResult } from "./trace";
+import { emitStep, emitReasoning, nextStepId } from "./trace-bus";
 
 export const MAX_TURNS = 5;
 
@@ -65,10 +67,18 @@ export async function runAgentLoop(opts: {
       break;
     }
 
+    // surface the model's between-step narration (when it produces any) to the live trace
+    emitReasoning(turn.text ?? "");
+
     // record the model's tool-call turn so the provider can echo it back next round
     messages.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls });
 
     for (const call of turn.toolCalls) {
+      // trace: open the step row ("running…") before executing — observability only, no logic change
+      const stepIndex = nextStepId();
+      emitStep({ stepIndex, tool: call.name, args: call.args, status: "running", resultSummary: null, ms: null });
+      const startedAt = Date.now();
+
       const tool = tools[call.name];
       let result: unknown;
       let ok = true;
@@ -83,6 +93,17 @@ export async function runAgentLoop(opts: {
           result = { error: e instanceof Error ? e.message : "tool failed" };
         }
       }
+
+      // trace: resolve the step row to its real result + elapsed time
+      emitStep({
+        stepIndex,
+        tool: call.name,
+        args: call.args,
+        status: ok ? "done" : "error",
+        resultSummary: summarizeToolResult(call.name, call.args, result, ok),
+        ms: Date.now() - startedAt,
+      });
+
       toolTrace.push({ name: call.name, args: call.args, ok, result });
       if (ok && call.name === "propose_campaign") {
         proposedCampaign = result as ProposedCampaign;

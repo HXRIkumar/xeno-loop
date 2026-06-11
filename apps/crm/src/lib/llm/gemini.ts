@@ -7,6 +7,7 @@
  */
 import { GoogleGenAI } from "@google/genai";
 import type { ChatMessage, LLMProvider, LLMTurn, ToolSpec } from "./types";
+import { emitStep, nextStepId } from "@/lib/agent/trace-bus";
 
 const MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
@@ -138,10 +139,24 @@ export class GeminiProvider implements LLMProvider {
     // free-tier 429s are transient — back off and retry
     const backoffs = [2000, 4000];
     let lastErr: unknown;
+    // a pending re-sample, surfaced to the trace as retrying→recovered (same provider-agnostic bus
+    // the loop + Groq adapter use — so switching providers needs no trace-layer changes)
+    let pendingRetry: { id: number; at: number } | null = null;
     for (let attempt = 0; attempt <= backoffs.length; attempt++) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const res = await this.ai.models.generateContent(request as any);
+        if (pendingRetry) {
+          emitStep({
+            stepIndex: pendingRetry.id,
+            tool: "model",
+            args: {},
+            status: "recovered",
+            resultSummary: "recovered — model returned a valid response",
+            ms: Date.now() - pendingRetry.at,
+          });
+          pendingRetry = null;
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parts: any[] = res.candidates?.[0]?.content?.parts ?? [];
 
@@ -162,6 +177,9 @@ export class GeminiProvider implements LLMProvider {
       } catch (e) {
         lastErr = e;
         if (is429(e) && attempt < backoffs.length) {
+          const id = nextStepId();
+          emitStep({ stepIndex: id, tool: "model", args: {}, status: "retrying", resultSummary: "rate limited (429) — retrying", ms: null });
+          pendingRetry = { id, at: Date.now() };
           await sleep(backoffs[attempt]);
           continue;
         }

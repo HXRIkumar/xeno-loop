@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Users, Sparkles } from "lucide-react";
+import { ArrowLeft, Users, Sparkles, Wrench } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
 import { CampaignStatusBadge, ChannelBadge } from "@/components/badges";
 import { CampaignActions } from "@/components/campaign-actions";
 import { CampaignFunnel } from "@/components/campaign-funnel";
 import { CampaignSummary } from "@/components/campaign-summary";
+import { AgentTrace } from "@/components/agent-trace";
 import { Card, CardContent } from "@/components/ui/card";
 import { SegmentFilterSchema, describeFilter } from "@/lib/segment";
 import { renderMessage } from "@/lib/render";
+import type { AgentTrace as Trace } from "@/lib/agent/trace";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,14 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const reasoning = (campaign.reasoningJson as Reasoning) ?? null;
   const impact = (campaign.expectedImpactJson as Impact) ?? null;
   const preFire = campaign.status === "PROPOSED" || campaign.status === "APPROVED";
+
+  // the Agent Activity Trace that produced this proposal (if it came from Loop) — re-openable here
+  const agentRun = await prisma.agentRun.findFirst({
+    where: { campaignId: id },
+    orderBy: { createdAt: "desc" },
+    select: { traceJson: true },
+  });
+  const trace = (agentRun?.traceJson as Trace | null) ?? null;
 
   return (
     <div>
@@ -114,6 +124,16 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {/* exactly how Loop reached this proposal — the full ordered trace, re-openable */}
+            {trace && trace.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                  <Wrench className="h-4 w-4" /> How Loop reached this
+                </div>
+                <AgentTrace entries={trace} defaultOpen={false} />
+              </div>
             )}
 
             {impact && (

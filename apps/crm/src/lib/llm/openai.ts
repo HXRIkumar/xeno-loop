@@ -1,4 +1,5 @@
 import type { ChatMessage, LLMProvider, LLMTurn, ToolSpec } from "./types";
+import { emitStep, nextStepId } from "@/lib/agent/trace-bus";
 
 /**
  * OpenAI-compatible adapter — now LIVE, pointed at Groq by default.
@@ -124,6 +125,17 @@ export class OpenAIProvider implements LLMProvider {
     };
 
     let lastErr: unknown;
+    // A pending re-sample, surfaced to the trace as a retrying→recovered row (provider-agnostic via
+    // the trace bus — no LLMProvider interface change). Robustness is part of the demo story.
+    // openRetry emits the "retrying" row and RETURNS the handle (assigned inline below, not from
+    // inside a closure, so TS flow-narrowing stays happy).
+    let pendingRetry: { id: number; at: number } | null = null;
+    const openRetry = (reason: string): { id: number; at: number } => {
+      const id = nextStepId();
+      emitStep({ stepIndex: id, tool: "model", args: {}, status: "retrying", resultSummary: reason, ms: null });
+      return { id, at: Date.now() };
+    };
+
     // up to MAX_RETRIES retries. Retriable: 429 (respect Retry-After), transient network errors,
     // and Groq's 400 `tool_use_failed` (llama occasionally emits a malformed tool call — re-sampling
     // fixes it), all with exponential fallback backoff.
@@ -138,6 +150,7 @@ export class OpenAIProvider implements LLMProvider {
       } catch (e) {
         lastErr = e;
         if (attempt < MAX_RETRIES) {
+          pendingRetry = openRetry("network error — retrying");
           await sleep(500 * 2 ** attempt);
           continue;
         }
@@ -153,11 +166,27 @@ export class OpenAIProvider implements LLMProvider {
           const fromHeader = retryAfter ? Math.ceil(parseFloat(retryAfter) * 1000) : NaN;
           // tool_use_failed isn't rate-limiting — just re-sample quickly; honor Retry-After for 429s
           const waitMs = Number.isFinite(fromHeader) && fromHeader > 0 ? fromHeader : 400 * 2 ** attempt;
+          pendingRetry = openRetry(
+            isToolUseFailed ? "model emitted a malformed tool call — re-sampling" : `rate limited (HTTP ${res.status}) — retrying`
+          );
           await sleep(waitMs);
           lastErr = new Error(`${this.name} API ${res.status}: ${errText.slice(0, 200)}`);
           continue;
         }
         throw new Error(`${this.name} API error ${res.status}: ${errText.slice(0, 500)}`);
+      }
+
+      // got a good response — if we'd been re-sampling, mark the self-heal as recovered
+      if (pendingRetry) {
+        emitStep({
+          stepIndex: pendingRetry.id,
+          tool: "model",
+          args: {},
+          status: "recovered",
+          resultSummary: "recovered — model returned a valid response",
+          ms: Date.now() - pendingRetry.at,
+        });
+        pendingRetry = null;
       }
 
       const data = (await res.json()) as OpenAIResponse;

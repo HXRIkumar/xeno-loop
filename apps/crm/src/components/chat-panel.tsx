@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Loader2, Sparkles, Wrench } from "lucide-react";
+import { Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProposalCard } from "@/components/proposal-card";
+import { AgentTrace } from "@/components/agent-trace";
 import { cn } from "@/lib/utils";
+import { applyTraceEvent, type AgentEvent, type AgentTrace as Trace } from "@/lib/agent/trace";
 import type { ProposedCampaign } from "@/lib/agent/loop";
 
 type ChatMsg = {
   role: "user" | "assistant";
   content: string;
   proposal?: ProposedCampaign | null;
-  tools?: string[];
+  trace?: Trace;
+  streaming?: boolean;
   error?: boolean;
 };
 
@@ -22,11 +25,26 @@ const SUGGESTIONS = [
   "Which channel converts best, and why?",
 ];
 
-const TOOL_LABEL: Record<string, string> = {
-  analyse_audience: "analysed audience",
-  get_past_performance: "checked past performance",
-  draft_message: "drafted copy",
-  propose_campaign: "proposed campaign",
+/** Parse one SSE block ("event: x\ndata: {...}") into { event, data }. */
+function parseSSE(block: string): { event: string; data: unknown } | null {
+  let event = "message";
+  let data = "";
+  for (const line of block.split("\n")) {
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    else if (line.startsWith("data:")) data += line.slice(5).trim();
+  }
+  if (!data) return null;
+  try {
+    return { event, data: JSON.parse(data) };
+  } catch {
+    return null;
+  }
+}
+
+type FinalPayload = {
+  finalText?: string;
+  proposedCampaign?: ProposedCampaign | null;
+  error?: string | null;
 };
 
 export function ChatPanel({ initialPrompt }: { initialPrompt?: string }) {
@@ -39,31 +57,77 @@ export function ChatPanel({ initialPrompt }: { initialPrompt?: string }) {
   async function send(prompt: string) {
     const text = prompt.trim();
     if (!text || loading) return;
-    const history = messages.filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content }));
-    setMessages((m) => [...m, { role: "user", content: text }]);
+
+    const history = messages
+      .filter((m) => !m.error && m.content)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    // add the user turn + a live assistant placeholder we'll stream the trace into
+    setMessages((m) => [...m, { role: "user", content: text }, { role: "assistant", content: "", trace: [], streaming: true }]);
     setInput("");
     setLoading(true);
+
+    // patch the last (assistant) message
+    const patchLast = (fn: (prev: ChatMsg) => ChatMsg) =>
+      setMessages((ms) => {
+        const copy = ms.slice();
+        copy[copy.length - 1] = fn(copy[copy.length - 1]);
+        return copy;
+      });
+
+    let trace: Trace = [];
     try {
       const res = await fetch("/api/agent", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ prompt: text, history }),
       });
-      const data = await res.json();
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content: data.finalText ?? "…",
-          proposal: data.proposedCampaign ?? null,
-          tools: Array.isArray(data.toolTrace) ? data.toolTrace.map((t: { name: string }) => t.name) : [],
-          error: !!data.error,
-        },
-      ]);
+
+      if (!res.ok || !res.body) {
+        patchLast((p) => ({ ...p, content: "I couldn't process that request.", error: true, streaming: false }));
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl: number;
+        // SSE frames are separated by a blank line
+        while ((nl = buf.indexOf("\n\n")) !== -1) {
+          const frame = buf.slice(0, nl);
+          buf = buf.slice(nl + 2);
+          const parsed = parseSSE(frame);
+          if (!parsed) continue;
+
+          if (parsed.event === "step" || parsed.event === "reasoning") {
+            trace = applyTraceEvent(trace, parsed.data as AgentEvent);
+            const snapshot = trace;
+            patchLast((p) => ({ ...p, trace: snapshot }));
+          } else if (parsed.event === "final") {
+            const d = parsed.data as FinalPayload;
+            patchLast((p) => ({
+              ...p,
+              content: d.finalText ?? "…",
+              proposal: d.proposedCampaign ?? null,
+              error: !!d.error,
+              streaming: false,
+              trace,
+            }));
+          } else if (parsed.event === "error") {
+            const d = parsed.data as { message?: string };
+            patchLast((p) => ({ ...p, content: d.message ?? "Something went wrong.", error: true, streaming: false }));
+          }
+        }
+      }
     } catch {
-      setMessages((m) => [...m, { role: "assistant", content: "Network error reaching Loop.", error: true }]);
+      patchLast((p) => ({ ...p, content: "Network error reaching Loop.", error: true, streaming: false }));
     } finally {
       setLoading(false);
+      patchLast((p) => (p.streaming ? { ...p, streaming: false } : p));
     }
   }
 
@@ -110,41 +174,31 @@ export function ChatPanel({ initialPrompt }: { initialPrompt?: string }) {
 
         {messages.map((m, i) => (
           <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-            <div className={cn("max-w-[85%] space-y-2", m.role === "user" && "items-end")}>
-              <div
-                className={cn(
-                  "whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                  m.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : m.error
-                      ? "bg-destructive/10 text-destructive"
-                      : "bg-muted"
-                )}
-              >
-                {m.content}
-              </div>
-              {m.tools && m.tools.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
-                  <Wrench className="h-3 w-3" />
-                  {m.tools.map((t, j) => (
-                    <span key={j} className="rounded bg-muted px-1.5 py-0.5">
-                      {TOOL_LABEL[t] ?? t}
-                    </span>
-                  ))}
+            <div className={cn("max-w-[88%] space-y-2", m.role === "user" && "items-end")}>
+              {/* the live Agent Activity Trace sits above the reply */}
+              {m.role === "assistant" && m.trace && (m.trace.length > 0 || m.streaming) && (
+                <AgentTrace entries={m.trace} live={!!m.streaming} defaultOpen />
+              )}
+
+              {m.content && (
+                <div
+                  className={cn(
+                    "whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                    m.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : m.error
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-muted"
+                  )}
+                >
+                  {m.content}
                 </div>
               )}
+
               {m.proposal && <ProposalCard proposal={m.proposal} />}
             </div>
           </div>
         ))}
-
-        {loading && (
-          <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loop is thinking…
-            </div>
-          </div>
-        )}
       </div>
 
       <form

@@ -1,7 +1,10 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getProvider, type ChatMessage } from "@/lib/llm";
 import { TOOLS } from "./tools";
 import { runAgentLoop, type AgentResult } from "./loop";
+import { applyTraceEvent, type AgentEvent, type AgentTrace } from "./trace";
+import { withTrace } from "./trace-bus";
 
 export const SYSTEM_PROMPT = `You are "Loop", the AI marketing co-pilot for StyleArc, a mid-market Indian D2C fashion label.
 
@@ -26,12 +29,14 @@ function mapHistory(history: { role: "user" | "assistant"; content: string }[] |
     .map((m) => ({ role: m.role, content: m.content }));
 }
 
-async function persistAgentRun(prompt: string, result: AgentResult) {
+/** Persist the run (incl. the full ordered trace + proposed campaign link) — returns the run id. */
+async function persistAgentRun(prompt: string, result: AgentResult, trace: AgentTrace): Promise<string | null> {
   try {
-    await prisma.agentRun.create({
+    const run = await prisma.agentRun.create({
       data: {
         prompt,
         provider: result.provider,
+        campaignId: result.proposedCampaign?.campaignId ?? null,
         decisionJson: {
           finalText: result.finalText,
           proposedCampaignId: result.proposedCampaign?.campaignId ?? null,
@@ -41,32 +46,48 @@ async function persistAgentRun(prompt: string, result: AgentResult) {
           proposal: result.proposedCampaign?.reasoning ?? null,
           turns: result.turns,
         },
+        traceJson: trace as unknown as Prisma.InputJsonValue,
       },
+      select: { id: true },
     });
+    return run.id;
   } catch {
     /* logging an agent run must never break the response */
+    return null;
   }
 }
 
-export type RunAgentResponse = AgentResult & { error?: string };
+export type RunAgentResponse = AgentResult & { error?: string; runId?: string | null };
 
-/** Entry point used by the API route. Wires the live provider + tools; degrades gracefully. */
-export async function runAgent(input: {
-  prompt: string;
-  history?: { role: "user" | "assistant"; content: string }[];
-}): Promise<RunAgentResponse> {
+/**
+ * Entry point used by the API route. Wires the live provider + tools; degrades gracefully.
+ * Runs inside `withTrace` so the loop + adapters stream step/reasoning/retry events; `opts.emit`
+ * forwards them live (SSE) while we ALSO fold them into the ordered trace we persist + return.
+ */
+export async function runAgent(
+  input: { prompt: string; history?: { role: "user" | "assistant"; content: string }[] },
+  opts?: { emit?: (e: AgentEvent) => void }
+): Promise<RunAgentResponse> {
   let providerName = "unknown";
+  let trace: AgentTrace = [];
+  const emit = (e: AgentEvent) => {
+    trace = applyTraceEvent(trace, e);
+    opts?.emit?.(e);
+  };
+
   try {
-    const provider = getProvider();
-    providerName = provider.name;
-    const messages: ChatMessage[] = [...mapHistory(input.history), { role: "user", content: input.prompt }];
-    const result = await runAgentLoop({ provider, tools: TOOLS, system: SYSTEM_PROMPT, messages });
-    await persistAgentRun(input.prompt, result);
-    return result;
+    const result = await withTrace(emit, async () => {
+      const provider = getProvider();
+      providerName = provider.name;
+      const messages: ChatMessage[] = [...mapHistory(input.history), { role: "user", content: input.prompt }];
+      return runAgentLoop({ provider, tools: TOOLS, system: SYSTEM_PROMPT, messages });
+    });
+    const runId = await persistAgentRun(input.prompt, result, trace);
+    return { ...result, runId };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     const isQuota = /429|RESOURCE_EXHAUSTED|quota|rate/i.test(message);
-    return {
+    const degraded: AgentResult = {
       finalText: isQuota
         ? "I couldn't reach the model right now (it's rate-limited). Everything else in Loop works — you can still build and fire campaigns manually from the Campaigns tab."
         : "I hit an error reaching the model. Please try again in a moment.",
@@ -75,7 +96,8 @@ export async function runAgent(input: {
       turns: 0,
       provider: providerName,
       hitTurnLimit: false,
-      error: message,
     };
+    const runId = await persistAgentRun(input.prompt, degraded, trace);
+    return { ...degraded, error: message, runId };
   }
 }

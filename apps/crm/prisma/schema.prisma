@@ -165,6 +165,10 @@ model AgentRun {
   prompt       String
   decisionJson Json // what the agent decided / proposed
   reasoningJson Json // the reasoning trace + tool calls
-  provider     String // which LLM provider produced this run (e.g. "gemini")
+  traceJson    Json? // the full ordered Agent Activity Trace (steps + reasoning + retries)
+  campaignId   String? // the campaign this run proposed, if any — for "view trace" on past proposals
+  provider     String // which LLM provider produced this run (e.g. "groq")
   createdAt    DateTime @default(now())
+
+  @@index([campaignId])
 }
