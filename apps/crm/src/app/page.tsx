@@ -64,7 +64,7 @@ export default async function DashboardPage() {
               <Sparkles className="h-4 w-4 text-primary" />
               Opportunities Loop spotted
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {opportunities.map((o) => (
                 <Card key={o.id} className="flex flex-col border-primary/20">
                   <CardContent className="flex flex-1 flex-col gap-2 p-5">

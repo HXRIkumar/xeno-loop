@@ -99,7 +99,7 @@ export function AnalyticsView({ channels, funnel, personas, revenue, monthly, ca
         <Stat label="Converted comms" value={String(funnel.converted)} hint={`${funnel.rates.convertRate}% of sent`} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         {/* channel performance — the headline */}
         <Panel
           title="Channel performance"
