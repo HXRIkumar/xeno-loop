@@ -1,0 +1,28 @@
+# Render Blueprint — channel service (apps/channel-service).
+# Lives at the repo root so Render's monorepo detection + npm-workspaces install work.
+# Deploy: Render Dashboard → New → Blueprint → pick this repo. (Or create a Web Service manually
+# with the same build/start commands — see DEPLOY.md.)
+services:
+  - type: web
+    name: xeno-channel-service
+    runtime: node
+    plan: free # NOTE: free web services sleep after ~15 min idle → ~50s cold start (see DEPLOY.md)
+    region: singapore # closest Render region to Supabase ap-south-1 (Mumbai) — lower receipt-loop latency
+    healthCheckPath: /health
+    autoDeploy: true
+    # Monorepo: install at the repo root (npm workspaces), then build ONLY the channel workspace.
+    buildCommand: npm ci && npm --workspace apps/channel-service run build
+    # Built output is apps/channel-service/dist/server.js; "start" runs `node dist/server.js`.
+    startCommand: npm --workspace apps/channel-service run start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # PORT is injected by Render automatically and read via process.env.PORT — do NOT set it.
+      - key: CRM_RECEIPTS_URL
+        sync: false # SET IN DASHBOARD after the CRM is live: https://<your-crm>.vercel.app/api/receipts
+      - key: RECEIPT_CONCURRENCY
+        value: "10" # max in-flight receipt callbacks — backpressure that protects the CRM's DB pool
+      - key: REQUEST_TIMEOUT_MS
+        value: "12000" # per-receipt callback timeout (tolerates a high-latency pooled DB)
+      - key: WORKER_CONCURRENCY
+        value: "8" # delivery-worker concurrency draining the in-memory queue
