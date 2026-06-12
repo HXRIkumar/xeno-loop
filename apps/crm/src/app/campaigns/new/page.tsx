@@ -21,6 +21,7 @@ import {
 import { PERSONAS, PERSONA_LABEL, CHANNELS, CHANNEL_LABEL } from "@/lib/display";
 import { inr } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { buildSegmentFilter } from "@/lib/segment-filter";
 import type { Persona, Channel } from "@prisma/client";
 
 type Preview = {
@@ -37,8 +38,10 @@ export default function NewCampaignPage() {
   const [goal, setGoal] = useState("Re-engage lapsed high-LTV customers before they churn");
   const [channel, setChannel] = useState<Channel>("WHATSAPP");
   const [personas, setPersonas] = useState<Persona[]>(["DORMANT"]);
-  const [minDays, setMinDays] = useState("120");
-  const [minLtv, setMinLtv] = useState("10000");
+  // start recency/LTV BLANK — pre-filling them silently AND-ed every persona preview with a
+  // dormancy + ₹10k floor, so only dormant high-LTV customers ever showed (the preview bug).
+  const [minDays, setMinDays] = useState("");
+  const [minLtv, setMinLtv] = useState("");
   const [template, setTemplate] = useState(
     "Hi {name}, we've missed you at StyleArc! Here's {offer} on your next order — picked just for you."
   );
@@ -50,11 +53,7 @@ export default function NewCampaignPage() {
   const [error, setError] = useState<string | null>(null);
 
   function buildFilter() {
-    const f: Record<string, unknown> = {};
-    if (personas.length) f.personas = personas;
-    if (minDays.trim()) f.minDaysSinceOrder = Number(minDays);
-    if (minLtv.trim()) f.minLtv = Number(minLtv);
-    return f;
+    return buildSegmentFilter({ personas, minDaysSinceOrder: minDays, minLtv });
   }
 
   async function runPreview() {
