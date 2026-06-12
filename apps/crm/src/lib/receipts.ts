@@ -15,6 +15,13 @@ import { prisma } from "@/lib/prisma";
 import { deriveStatus } from "@/lib/reducer";
 import { realisticOrderAmount, pickCategory } from "@/lib/attribution";
 
+// Interactive-transaction bounds. Prisma defaults (timeout 5s, maxWait 2s) are SHORTER than a
+// round-trip to a pooled DB over a high-latency link (e.g. Supabase via VPN: ~1s/query), so a
+// multi-statement tx expired mid-flight (P2028). Tuned high for high-latency pooled connections;
+// override via env if needed. We also keep the tx SMALL (writes only) so it rarely approaches this.
+const TX_TIMEOUT_MS = Number(process.env.PRISMA_TX_TIMEOUT_MS ?? 20000);
+const TX_MAX_WAIT_MS = Number(process.env.PRISMA_TX_MAX_WAIT_MS ?? 10000);
+
 export type ReceiptInput = {
   communicationId: string;
   providerEventId: string;
@@ -76,63 +83,85 @@ export async function ingestReceipt(input: ReceiptInput): Promise<IngestResult> 
   let converted = false;
   let campaignCompleted = false;
 
-  await prisma.$transaction(async (tx) => {
-    // (3) status + settle
-    await tx.communication.update({
-      where: { id: comm.id },
-      data: {
-        status: derived,
-        settledAt: isFinal && comm.settledAt == null ? new Date() : undefined,
-      },
-    });
-
-    // (3b) attributed conversion — idempotent (one order per communication)
-    if (derived === "CONVERTED") {
-      const existing = await tx.order.findFirst({
-        where: { attributedCommunicationId: comm.id },
-        select: { id: true },
-      });
-      if (!existing) {
-        const customer = await tx.customer.findUniqueOrThrow({
-          where: { id: comm.customerId },
-          select: { ltv: true, totalOrders: true },
-        });
-        const amount = realisticOrderAmount(customer);
-        const order = await tx.order.create({
-          data: {
-            customerId: comm.customerId,
-            amount,
-            category: pickCategory(),
-            channel: "ONLINE",
-            attributedCommunicationId: comm.id,
-          },
-        });
-        await tx.customer.update({
-          where: { id: comm.customerId },
-          data: {
-            ltv: { increment: amount },
-            totalOrders: { increment: 1 },
-            lastOrderDate: order.createdAt,
-          },
-        });
-        converted = true;
-      }
-    }
-
-    // (4) campaign completion — when every communication has settled
-    if (isFinal) {
-      const remaining = await tx.communication.count({
-        where: { campaignId: comm.campaignId, settledAt: null },
-      });
-      if (remaining === 0) {
-        const updated = await tx.campaign.updateMany({
-          where: { id: comm.campaignId, status: "SENDING" },
-          data: { status: "COMPLETED" },
-        });
-        campaignCompleted = updated.count > 0;
-      }
-    }
+  // (3) status + settle — a SINGLE atomic write, deliberately NOT inside an interactive transaction,
+  // so the common path can never hit the tx timeout. Idempotent: re-applying `derived` is a no-op,
+  // and settledAt is set once (only while currently null).
+  await prisma.communication.update({
+    where: { id: comm.id },
+    data: {
+      status: derived,
+      settledAt: isFinal && comm.settledAt == null ? new Date() : undefined,
+    },
   });
+
+  // (4) attributed conversion — only on reaching CONVERTED. Reads run OUTSIDE the tx; only the
+  // order.create + customer LTV bump (which MUST be atomic together) run inside a short tx. If the
+  // tx fails, the receipt 500s, the channel retries, and the dedup self-heal re-runs this — so it
+  // converges (one order per communication, guarded by the existence checks).
+  if (derived === "CONVERTED") {
+    const existing = await prisma.order.findFirst({
+      where: { attributedCommunicationId: comm.id },
+      select: { id: true },
+    });
+    if (!existing) {
+      const customer = await prisma.customer.findUnique({
+        where: { id: comm.customerId },
+        select: { ltv: true, totalOrders: true },
+      });
+      if (customer) {
+        const amount = realisticOrderAmount(customer);
+        try {
+          await prisma.$transaction(
+            async (tx) => {
+              // re-check inside the tx so a concurrent/retried receipt can't double-create the order
+              const dup = await tx.order.findFirst({
+                where: { attributedCommunicationId: comm.id },
+                select: { id: true },
+              });
+              if (dup) return;
+              const order = await tx.order.create({
+                data: {
+                  customerId: comm.customerId,
+                  amount,
+                  category: pickCategory(),
+                  channel: "ONLINE",
+                  attributedCommunicationId: comm.id,
+                },
+              });
+              await tx.customer.update({
+                where: { id: comm.customerId },
+                data: {
+                  ltv: { increment: amount },
+                  totalOrders: { increment: 1 },
+                  lastOrderDate: order.createdAt,
+                },
+              });
+              converted = true;
+            },
+            { timeout: TX_TIMEOUT_MS, maxWait: TX_MAX_WAIT_MS }
+          );
+        } catch (e) {
+          // a concurrent receipt may have created the order first — that's fine, it's still converted
+          if (!isUniqueViolation(e)) throw e;
+        }
+      }
+    }
+  }
+
+  // (5) campaign completion — count remaining unsettled OUTSIDE the tx, then a single idempotent
+  // updateMany (guarded by status:SENDING, so retries/duplicates flip it at most once).
+  if (isFinal) {
+    const remaining = await prisma.communication.count({
+      where: { campaignId: comm.campaignId, settledAt: null },
+    });
+    if (remaining === 0) {
+      const updated = await prisma.campaign.updateMany({
+        where: { id: comm.campaignId, status: "SENDING" },
+        data: { status: "COMPLETED" },
+      });
+      campaignCompleted = updated.count > 0;
+    }
+  }
 
   return {
     ok: true,
