@@ -44,8 +44,13 @@ export const RETRY_BACKOFFS_MS = [500, 1000, 2000, 4000];
 export const CONFIG = {
   port: Number(process.env.PORT ?? 4000),
   crmReceiptsUrl: process.env.CRM_RECEIPTS_URL ?? "http://localhost:3000/api/receipts",
-  requestTimeoutMs: 5000,
-  workerConcurrency: 8,
+  // generous per-receipt timeout: a high-latency pooled DB (e.g. Supabase over a hotspot) can take
+  // seconds per receipt; aborting at 5s caused needless retries → dead-letters. 12s lets it land.
+  requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS ?? 12000),
+  workerConcurrency: Number(process.env.WORKER_CONCURRENCY ?? 8),
+  // cap concurrent in-flight receipt callbacks so a burst can't exhaust the CRM's DB connection
+  // pool. At scale this is the rate-limit/backpressure you'd put on a webhook fan-out.
+  receiptConcurrency: Number(process.env.RECEIPT_CONCURRENCY ?? 10),
 };
 
 /** Derive the CRM origin from the receipts URL so /stress can provision real communications. */

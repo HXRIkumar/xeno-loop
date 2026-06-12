@@ -45,7 +45,11 @@ export async function ingestReceipt(input: ReceiptInput): Promise<IngestResult> 
   });
   if (!comm) return { ok: false, code: "UNKNOWN_COMMUNICATION" };
 
-  // (1) idempotent append
+  // (1) idempotent append — a duplicate providerEventId means "don't insert twice", NOT "skip the
+  // status recompute". If a prior attempt inserted the event but then 500'd before updating status
+  // (e.g. a connection-pool timeout under load), the channel service retries the SAME receipt; we
+  // must still re-derive so the communication converges to its correct status (self-healing).
+  let deduped = false;
   try {
     await prisma.communicationEvent.create({
       data: {
@@ -57,21 +61,11 @@ export async function ingestReceipt(input: ReceiptInput): Promise<IngestResult> 
       },
     });
   } catch (e) {
-    if (isUniqueViolation(e)) {
-      // already ingested — no-op, report current state
-      return {
-        ok: true,
-        deduped: true,
-        status: comm.status,
-        converted: false,
-        settled: comm.settledAt != null,
-        campaignCompleted: false,
-      };
-    }
-    throw e;
+    if (isUniqueViolation(e)) deduped = true;
+    else throw e;
   }
 
-  // (2) re-derive from the full log
+  // (2) re-derive from the full log (always — including on dedup, so retries heal stuck comms)
   const events = await prisma.communicationEvent.findMany({
     where: { communicationId: comm.id },
     select: { type: true, occurredAt: true },
@@ -142,7 +136,7 @@ export async function ingestReceipt(input: ReceiptInput): Promise<IngestResult> 
 
   return {
     ok: true,
-    deduped: false,
+    deduped,
     status: derived,
     converted,
     settled: isFinal || comm.settledAt != null,

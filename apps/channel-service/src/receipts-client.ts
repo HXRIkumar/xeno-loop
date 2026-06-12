@@ -5,6 +5,25 @@ import { metrics, countStatus, pushDeadLetter } from "./state";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Bounded-concurrency gate: at most CONFIG.receiptConcurrency receipt callbacks are in flight at
+// once. Event timers fire unbounded (one per lifecycle stage); without this, a campaign-sized
+// burst stampedes the CRM and exhausts its DB connection pool. Backpressure here keeps the callback
+// rate at what the CRM can actually serve.
+let inFlight = 0;
+const waiters: Array<() => void> = [];
+async function acquireSlot(): Promise<void> {
+  if (inFlight < CONFIG.receiptConcurrency) {
+    inFlight++;
+    return;
+  }
+  await new Promise<void>((resolve) => waiters.push(resolve));
+  inFlight++;
+}
+function releaseSlot(): void {
+  inFlight--;
+  waiters.shift()?.();
+}
+
 /** 4xx (except 408/429) won't change on retry — don't waste attempts. */
 function isRetryable(status: number): boolean {
   if (status >= 500) return true;
@@ -42,6 +61,8 @@ export async function deliverReceipt(
   channel: Channel,
   event: SimEvent
 ): Promise<void> {
+  await acquireSlot();
+  try {
   let attempt = 0;
   let lastError = "";
 
@@ -82,4 +103,7 @@ export async function deliverReceipt(
     failedAt: new Date().toISOString(),
   });
   log.error("receipt dead-lettered", { communicationId, type: event.type, lastError });
+  } finally {
+    releaseSlot();
+  }
 }
