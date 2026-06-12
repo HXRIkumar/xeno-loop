@@ -2,12 +2,11 @@ import type { ChatMessage, LLMProvider, LLMTurn, ToolSpec } from "./types";
 import { emitStep, nextStepId } from "@/lib/agent/trace-bus";
 
 /**
- * OpenAI-compatible adapter — now LIVE, pointed at Groq by default.
- *
- * Groq's API is OpenAI-compatible (identical /chat/completions shape, identical `tools` /
- * `tool_calls`), so this ONE adapter serves both LLM_PROVIDER=groq and LLM_PROVIDER=openai —
- * no Groq-specific adapter needed. It speaks the wire protocol with `fetch` (no SDK dependency,
- * which also dodges this box's flaky non-443 network). The neutral contract maps cleanly:
+ * OpenAI-compatible adapter — LIVE. Defaults to the real OpenAI API; the SAME adapter also serves
+ * Groq (its API is OpenAI-compatible), with base URL / key / model passed in by getProvider() per
+ * LLM_PROVIDER. So one adapter covers `openai` (paid, reliable tool grounding) and `groq` (free) —
+ * no provider-specific code. It speaks the wire protocol with `fetch` (no SDK dependency). The
+ * neutral contract maps cleanly:
  *   - system            → a leading { role:"system" } message
  *   - assistant.toolCalls→ message.tool_calls (function.arguments is serialized to a JSON STRING)
  *   - tool result        → { role:"tool", tool_call_id } message
@@ -18,9 +17,9 @@ import { emitStep, nextStepId } from "@/lib/agent/trace-bus";
  * STRING — we JSON.parse it into our neutral object args (Gemini gives an object already).
  */
 
-const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const MAX_RETRIES = 3; // on HTTP 429, respecting Retry-After
+const DEFAULT_BASE_URL = "https://api.openai.com/v1";
+const DEFAULT_MODEL = "gpt-4.1-mini";
+const MAX_RETRIES = 3; // on HTTP 429 (respecting Retry-After) + Groq's transient tool_use_failed
 
 type OpenAIToolCall = {
   id: string;
@@ -91,14 +90,14 @@ export class OpenAIProvider implements LLMProvider {
   private readonly model: string;
 
   constructor(opts?: { apiKey?: string; baseURL?: string; model?: string; name?: string }) {
+    // getProvider() passes the per-provider base URL / key / model explicitly; these are fallbacks.
     this.name = opts?.name ?? "openai";
-    this.apiKey = opts?.apiKey ?? process.env.GROQ_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
-    this.baseURL = (opts?.baseURL ?? process.env.OPENAI_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
-    this.model = opts?.model ?? process.env.GROQ_MODEL ?? DEFAULT_MODEL;
+    this.apiKey = opts?.apiKey ?? "";
+    this.baseURL = (opts?.baseURL ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    this.model = opts?.model ?? DEFAULT_MODEL;
     if (!this.apiKey) {
-      throw new Error(
-        "GROQ_API_KEY is not set (the OpenAI-compatible adapter points at Groq — set GROQ_API_KEY in .env)"
-      );
+      const envVar = this.name === "groq" ? "GROQ_API_KEY" : "OPENAI_API_KEY";
+      throw new Error(`${envVar} is not set (required for LLM_PROVIDER=${this.name})`);
     }
   }
 

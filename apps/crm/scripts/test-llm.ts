@@ -11,7 +11,13 @@ import { getProvider } from "../src/lib/llm";
 
 async function main() {
   const provider = getProvider();
-  const model = process.env.GROQ_MODEL ?? process.env.GEMINI_MODEL ?? "(provider default)";
+  // show the model that actually matches the active provider (not just whichever *_MODEL is set)
+  const prov = (process.env.LLM_PROVIDER ?? "openai").toLowerCase();
+  const model =
+    prov === "openai" ? (process.env.OPENAI_MODEL ?? "gpt-4.1-mini")
+    : prov === "groq" ? (process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile")
+    : prov === "gemini" ? (process.env.GEMINI_MODEL ?? "gemini-2.5-flash")
+    : "(provider default)";
   console.log(`LLM_PROVIDER=${process.env.LLM_PROVIDER} | provider.name=${provider.name} | model=${model}`);
 
   const turn = await provider.runTurn({
