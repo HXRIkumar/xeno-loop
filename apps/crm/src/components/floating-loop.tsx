@@ -15,7 +15,13 @@ export function FloatingLoop() {
   return (
     <>
       {open && (
-        <div className="fixed bottom-24 right-5 z-50 flex h-[560px] w-[400px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl">
+        <div
+          style={{
+            bottom: "calc(max(1.25rem, env(safe-area-inset-bottom)) + 4.25rem)",
+            right: "max(1.25rem, env(safe-area-inset-right))",
+          }}
+          className="fixed z-50 flex h-[560px] max-h-[calc(100dvh-7rem)] w-[400px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl"
+        >
           <div className="flex items-center justify-between border-b bg-primary/[0.04] px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-primary">
               <Sparkles className="h-4 w-4" /> Loop
@@ -36,8 +42,12 @@ export function FloatingLoop() {
 
       <button
         onClick={() => setOpen((o) => !o)}
+        style={{
+          bottom: "max(1.25rem, env(safe-area-inset-bottom))",
+          right: "max(1.25rem, env(safe-area-inset-right))",
+        }}
         className={cn(
-          "fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
+          "fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
         )}
         aria-label="Open Loop"
       >

@@ -12,7 +12,7 @@ export default async function AnalyticsPage() {
         title="Analytics"
         description="Funnel, channel performance, and attributed vs organic revenue."
       />
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <AnalyticsView {...insights} />
       </div>
     </div>

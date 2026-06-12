@@ -22,12 +22,12 @@ function Kpi({
 }) {
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Icon className="h-4 w-4" />
           <span className="text-xs uppercase tracking-wide">{label}</span>
         </div>
-        <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
+        <div className="mt-2 break-words text-xl font-semibold tabular-nums sm:text-2xl">{value}</div>
         {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
       </CardContent>
     </Card>
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
         description="StyleArc at a glance. Head to Loop to let the agent surface opportunities."
       />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 sm:p-8">
         {/* Opportunities Loop spotted in the data — click to have the agent propose one */}
         {opportunities.length > 0 && (
           <div className="space-y-3">
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Kpi icon={Users} label="Customers" value={String(total)} />
           <Kpi icon={IndianRupee} label="Lifetime value" value={inr(totalLtv)} />
           <Kpi icon={ShoppingBag} label="Total orders" value={String(totalOrders)} />
@@ -97,7 +97,7 @@ export default async function DashboardPage() {
         </div>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Persona distribution
@@ -113,9 +113,9 @@ export default async function DashboardPage() {
               {PERSONAS.map((p) => {
                 const count = countByPersona.get(p) ?? 0;
                 return (
-                  <div key={p} className="flex items-center gap-3">
-                    <div className="w-32 shrink-0 text-sm">{PERSONA_LABEL[p]}</div>
-                    <div className="h-6 flex-1 overflow-hidden rounded-md bg-muted">
+                  <div key={p} className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-24 shrink-0 truncate text-xs sm:w-32 sm:text-sm">{PERSONA_LABEL[p]}</div>
+                    <div className="h-6 min-w-0 flex-1 overflow-hidden rounded-md bg-muted">
                       <div
                         className="flex h-full items-center justify-end rounded-md bg-primary/80 pr-2 text-[11px] font-medium text-primary-foreground"
                         style={{ width: `${(count / maxCount) * 100}%` }}
@@ -123,7 +123,7 @@ export default async function DashboardPage() {
                         {count}
                       </div>
                     </div>
-                    <div className="w-28 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                    <div className="w-16 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground sm:w-28 sm:text-xs">
                       {inr(ltvByPersona.get(p) ?? 0)}
                     </div>
                   </div>

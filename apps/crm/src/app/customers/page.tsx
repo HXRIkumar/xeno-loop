@@ -52,8 +52,8 @@ export default async function CustomersPage({
         <CustomersFilter />
       </PageHeader>
 
-      <div className="p-8">
-        <div className="rounded-xl border bg-card">
+      <div className="p-4 sm:p-8">
+        <div className="overflow-x-auto rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow>

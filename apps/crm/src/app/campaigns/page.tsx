@@ -40,7 +40,7 @@ export default async function CampaignsPage() {
         </Button>
       </PageHeader>
 
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         {campaigns.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed bg-card/40 py-20 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground" />
@@ -58,7 +58,7 @@ export default async function CampaignsPage() {
             </Button>
           </div>
         ) : (
-          <div className="rounded-xl border bg-card">
+          <div className="overflow-x-auto rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   title: "Loop — AI Marketing Co-Pilot",
   description:
     "Loop finds the opportunity, proposes a full campaign with its reasoning shown, fires it through a realistic delivery pipeline, and attributes the revenue.",
+};
+
+// viewport-fit=cover so env(safe-area-inset-*) works (notch / home indicator on phones)
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -25,7 +32,8 @@ export default function RootLayout({
       <body className="min-h-full">
         <div className="flex h-screen overflow-hidden">
           <Sidebar />
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          {/* mobile: clear the fixed top bar (pt-14) + the floating button (pb-20); desktop unchanged */}
+          <main className="flex-1 overflow-y-auto pt-14 pb-20 md:pt-0 md:pb-0">{children}</main>
         </div>
         <FloatingLoop />
       </body>

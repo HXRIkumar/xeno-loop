@@ -51,7 +51,7 @@ const CHART_VARS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(-
 function Panel({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <Card>
-      <CardContent className="p-6">
+      <CardContent className="p-4 sm:p-6">
         <div className="mb-4">
           <h3 className="text-sm font-semibold">{title}</h3>
           {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
@@ -92,7 +92,7 @@ export function AnalyticsView({ channels, funnel, personas, revenue, monthly, ca
       </div>
 
       {/* revenue split */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Total revenue" value={inr(revenue.totalRevenue)} />
         <Stat label="Attributed" value={inr(revenue.attributedRevenue)} hint={`${revenue.attributedShare}% of revenue`} />
         <Stat label="Organic" value={inr(revenue.organicRevenue)} />
@@ -184,6 +184,7 @@ export function AnalyticsView({ channels, funnel, personas, revenue, monthly, ca
 
       {/* channel table — precise numbers */}
       <Panel title="Channel breakdown" subtitle="The exact numbers behind the chart.">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -212,6 +213,7 @@ export function AnalyticsView({ channels, funnel, personas, revenue, monthly, ca
             ))}
           </TableBody>
         </Table>
+        </div>
       </Panel>
     </div>
   );
@@ -220,9 +222,9 @@ export function AnalyticsView({ channels, funnel, personas, revenue, monthly, ca
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 sm:p-5">
         <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+        <div className="mt-1 break-words text-xl font-semibold tabular-nums sm:text-2xl">{value}</div>
         {hint && <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>}
       </CardContent>
     </Card>
