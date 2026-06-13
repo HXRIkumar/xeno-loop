@@ -7,9 +7,9 @@ import { z } from "zod";
 import type { ToolSpec } from "@/lib/llm";
 import { SegmentFilterSchema, previewSegment, describeFilter } from "@/lib/segment";
 import { getInsights } from "@/lib/analytics";
+import { getCampaignLearnings } from "@/lib/learnings-data";
 import { createCampaign } from "@/lib/campaigns";
 import { PERSONA_LABEL } from "@/lib/display";
-import { inr } from "@/lib/utils";
 
 export type Tool = {
   spec: ToolSpec;
@@ -86,6 +86,17 @@ const getPastPerformance: Tool = {
       })),
     };
   },
+};
+
+// ---------- get_campaign_learnings (the Learning Loop — PRIMARY grounding for proposals) ----------
+const getCampaignLearningsTool: Tool = {
+  spec: {
+    name: "get_campaign_learnings",
+    description:
+      "PRIMARY source of truth for what has actually worked, from real fired campaigns: per-channel conversion rates and attributed revenue WITH sample sizes + confidence flags, the best/worst channel, and the strongest persona×channel signal. Call this FIRST and ground your channel choice + reasoning in it. If hasData is false, say there's no history yet and proceed. Supersedes get_past_performance — do NOT also call that.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  run: async () => getCampaignLearnings(),
 };
 
 // ---------- draft_message ----------
@@ -206,6 +217,7 @@ const proposeCampaign: Tool = {
 export const TOOLS: Record<string, Tool> = {
   analyse_audience: analyseAudience,
   get_past_performance: getPastPerformance,
+  get_campaign_learnings: getCampaignLearningsTool,
   draft_message: draftMessage,
   propose_campaign: proposeCampaign,
 };

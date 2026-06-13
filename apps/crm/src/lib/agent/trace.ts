@@ -129,6 +129,16 @@ export function summarizeToolResult(
       return `‘${name}’ → ready to approve`;
     }
 
+    case "get_campaign_learnings": {
+      if (r.hasData === false) return "no campaign history yet";
+      const best = asRec(r.bestChannel);
+      const ch = asStr(best.channel);
+      const pct = asNum(best.convertedPct);
+      const n = Array.isArray(r.perChannel) ? r.perChannel.length : 0;
+      if (ch && pct !== null) return `best = ${ch} ${pct}%${best.lowConfidence ? " (limited data)" : ""} · ${n} channel${n === 1 ? "" : "s"}`;
+      return `${n} channel${n === 1 ? "" : "s"} analysed`;
+    }
+
     default:
       return "done";
   }

@@ -15,6 +15,7 @@ import type { AgentTrace as Trace, StepEntry, StepStatus } from "@/lib/agent/tra
 const TOOL_LABEL: Record<string, string> = {
   analyse_audience: "Analyse audience",
   get_past_performance: "Check past performance",
+  get_campaign_learnings: "Check past learnings",
   draft_message: "Draft message",
   propose_campaign: "Propose campaign",
   model: "Model",
