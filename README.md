@@ -1,30 +1,37 @@
 <div align="center">
 
-# ⟳ &nbsp;Loop
+<img src="https://capsule-render.vercel.app/api?type=waving&height=170&color=6D28D9&text=Loop&fontSize=72&fontColor=ffffff&fontAlignY=40&desc=AI%20marketing%20co-pilot%20for%20StyleArc&descSize=18&descAlignY=62&descColor=EDE9FE" width="100%" alt="Loop — AI marketing co-pilot for StyleArc" />
 
-### An AI marketing co-pilot for StyleArc — proposes, executes, attributes, and learns from campaigns.
+### Proposes, executes, attributes, and learns from campaigns — with a human in the loop.
 
-*A closed-loop, human-in-the-loop agent that finds a revenue opportunity, proposes a full campaign with its reasoning shown, lets the marketer approve, fires it through a realistic delivery pipeline, attributes the revenue, and learns from the outcome to sharpen the next recommendation.*
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=20&duration=2800&pause=900&color=8B5CF6&center=true&vCenter=true&width=640&height=40&lines=Agent+proposes%2C+human+approves%2C+system+learns;Idempotent%2C+out-of-order+delivery+pipeline;Confidence-aware+channel+recommendations;Grounded+reasoning+%E2%80%94+no+hallucinated+numbers" alt="Loop differentiators" />
 
 <br/>
 
-![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=nextdotjs&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5_·_strict-3178C6?style=flat&logo=typescript&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=flat&logo=prisma&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-Postgres-3FCF8E?style=flat&logo=supabase&logoColor=white)
-![Express](https://img.shields.io/badge/Express-4-000000?style=flat&logo=express&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4.1--mini-412991?style=flat&logo=openai&logoColor=white)
-![Recharts](https://img.shields.io/badge/Recharts-3-FF7300?style=flat)
-![Vercel](https://img.shields.io/badge/Vercel-CRM-000000?style=flat&logo=vercel&logoColor=white)
-![Render](https://img.shields.io/badge/Render-Channel_Service-46E3B7?style=flat&logo=render&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5_·_strict-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=flat-square&logo=prisma&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres-3FCF8E?style=flat-square&logo=supabase&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4-000000?style=flat-square&logo=express&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4.1--mini-412991?style=flat-square&logo=openai&logoColor=white)
+![Recharts](https://img.shields.io/badge/Recharts-3-FF7300?style=flat-square)
+![Vercel](https://img.shields.io/badge/Vercel-CRM-000000?style=flat-square&logo=vercel&logoColor=white)
+![Render](https://img.shields.io/badge/Render-Channel_Service-46E3B7?style=flat-square&logo=render&logoColor=white)
 
 </div>
 
----
+### ✨ Highlights
 
-## What is Loop
+| | |
+|:--|:--|
+| **🔄 The closed loop** — propose → approve → execute → attribute → **learn**, with a human approving every send. | **📡 A real delivery engine** — queue + worker, out-of-order events, idempotent receipts, retries + dead-letter. |
+| **📊 Grounded, confidence-aware learning** — recommendations cite real per-channel numbers; none are invented. | **💰 Revenue attribution** — last-touch within a 7-day window, split into attributed vs organic. |
+
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=8B5CF6" width="100%" alt="" />
+
+## 🎯 What is Loop
 
 Marketers at a D2C brand like **StyleArc** spend their day on four questions: *who* to talk to, *what* to say, *which channel* to use, and *did it actually drive revenue?* Most tools answer one or two and leave the loop open — you blast a segment and never learn whether it worked, so the next campaign is just as much of a guess.
 
@@ -38,7 +45,10 @@ Marketers at a D2C brand like **StyleArc** spend their day on four questions: *w
   + reasons   guardrail    + receipts   revenue       in real outcomes
 ```
 
-### Deliberately *not* built (scope discipline)
+<details>
+<summary><b>Deliberately <i>not</i> built — scope discipline</b></summary>
+
+<br/>
 
 The brief rewards depth in the right places, so these were conscious cuts — each stated as a tradeoff, not an oversight:
 
@@ -49,9 +59,9 @@ The brief rewards depth in the right places, so these were conscious cuts — ea
 | **Loyalty / offers modules, visual segment builder** | Out of scope for the core loop; effort went into the agent, the delivery engine, and attribution instead. |
 | **All three LLM adapters live** | The point is the *provider-agnostic interface*. **OpenAI is the live provider; Gemini is live but quota-limited; Anthropic is a typed stub that throws.** Swapping is a one-env-var change. |
 
----
+</details>
 
-## Live demo
+## 🌐 Live demo
 
 | Surface | URL | Notes |
 |---|---|---|
@@ -62,9 +72,9 @@ The brief rewards depth in the right places, so these were conscious cuts — ea
 
 > 🔒 No secrets live in this repo — only `.env.example` (names, no values). Every real value is set in the Vercel / Render dashboards. Replace the placeholder URLs above with your deployments.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=8B5CF6" width="100%" alt="" />
 
-## Architecture
+## 🏗️ Architecture
 
 Two services by deliberate design: a **serverless CRM** (stateless, scales to zero) and a **persistent channel service** (holds an in-memory queue, a long-running worker, and lifecycle timers — exactly what serverless can't host).
 
@@ -80,36 +90,49 @@ flowchart LR
     subgraph CH["📡 Channel service — Express · Render (Singapore)"]
         Q["In-memory queue"]
         W["Delivery worker<br/>bounded concurrency"]
-        SIM["Channel-aware simulator<br/>(per-channel probabilities)"]
+        SIM["Channel-aware simulator<br/>per-channel probabilities"]
         RC["Receipt client<br/>retries + dead-letter"]
     end
 
-    DB[("Supabase Postgres · ap-south-1")]
+    DB[("Supabase Postgres<br/>ap-south-1")]
 
     UI --> AGENT --> API
-    API -- "POST /send/batch → 202 accept" --> Q
+    API -- "POST /send/batch → 202" --> Q
     Q --> W --> SIM
-    SIM -- "lifecycle events<br/>random delay · OUT OF ORDER" --> RC
+    SIM -- "events · random delay · OUT OF ORDER" --> RC
     RC -- "POST /api/receipts · idempotent" --> API
     API --> RED --> DB
     AGENT -- "tools read live data" --> DB
-    DB -. "Supabase Realtime / 3s poll" .-> UI
+    DB -. "Realtime / 3s poll" .-> UI
+
+    classDef db fill:#6D28D9,stroke:#4C1D95,color:#ffffff;
+    class DB db;
+    style CRM fill:#F5F3FF,stroke:#7C3AED,color:#4C1D95;
+    style CH fill:#FAF5FF,stroke:#8B5CF6,color:#5B21B6;
 ```
 
-**Why each major piece is the way it is:**
+<details>
+<summary><b>Why each major piece is the way it is</b></summary>
+
+<br/>
 
 - **Split services.** The delivery pipeline needs a queue, a worker, and timers that fire over seconds — there's nowhere to hold those in a serverless function. So it's its own Express service, and the CRM stays a clean serverless app.
 - **202-accept + async receipts.** `POST /send/batch` returns immediately; the worker emits lifecycle events *later*, *out of order*, via `POST /api/receipts` — mirroring how real providers behave and forcing the system to be ordering-tolerant.
 - **Event log + pure reducer.** Receipts append to an immutable event log; status is **derived** from *all* events (max-rank), so duplicates and out-of-order arrivals are correct without special-casing.
 - **Realtime with a fallback.** The funnel updates via Supabase Realtime, with automatic **3s polling** fallback behind a flag — never a blank screen.
 
----
+</details>
 
-## Key features
+## 🧩 Key features
 
 ### 1 · Agentic proposals with explainable reasoning + a live Activity Trace
 
-The agent (`lib/agent/loop.ts`) is **provider-agnostic** and dependency-injected, so it's identical across vendors and unit-testable with a mock provider. Each turn: ask the model → run any requested tools (Zod-validated, errors caught) → feed results back → loop, bounded by `MAX_TURNS`. It never fires anything — `propose_campaign` persists a `PROPOSED` campaign for the human to approve.
+The agent (`lib/agent/loop.ts`) is **provider-agnostic** and dependency-injected, so it's identical across vendors and unit-testable with a mock provider. Each turn it asks the model, runs any requested tools (Zod-validated, errors caught), feeds the results back, and loops — bounded by `MAX_TURNS`. It never fires anything: `propose_campaign` persists a `PROPOSED` campaign for the human to approve. A **live Activity Trace** streams every step over SSE so you can *watch* it reason.
+
+<details>
+<summary><b>The agent's tools, the live trace & anti-hallucination design</b></summary>
+
+<br/>
 
 | Tool | What it does |
 |---|---|
@@ -119,17 +142,20 @@ The agent (`lib/agent/loop.ts`) is **provider-agnostic** and dependency-injected
 | `draft_message` | On-brand StyleArc copy with `{name}` / `{offer}` placeholders. |
 | `propose_campaign` | Persists the proposal (audience + message + channel + expected impact + cited reasoning). |
 
-A **live Activity Trace** streams every step over SSE (`/api/agent`) — each tool call, its real one-line result, retries, and the model's between-step narration — so you can *watch* the agent reason. The trace is a pure fold (`trace.ts`) used identically server- and client-side, reached via an `AsyncLocalStorage` bus so it required **zero changes to the LLM interface**.
+The **Activity Trace** streams each tool call, its real one-line result, retries, and the model's between-step narration over SSE (`/api/agent`). It's a pure fold (`trace.ts`) used identically server- and client-side, reached via an `AsyncLocalStorage` bus — so it required **zero changes to the LLM interface**.
 
-<details>
-<summary><b>Anti-hallucination design</b></summary>
+**Anti-hallucination:** tool calls run **sequentially** (`parallel_tool_calls: false`) so the model grounds each decision on the previous tool's *real* result before the next, and the proposal's `reasoning.dataPoints` must cite the actual numbers it pulled. Result: the agent proposes *"RCS converts best for dormant customers at X%"* because the data says so — not because it guessed.
 
-Tool calls run **sequentially** (`parallel_tool_calls: false`) so the model grounds each decision on the previous tool's *real* result before the next. The proposal's `reasoning.dataPoints` must cite the actual numbers it pulled. Result: the agent proposes *"RCS converts best for dormant customers at X%"* because the data says so — not because it guessed.
 </details>
 
 ### 2 · A genuinely engineered channel / delivery service
 
-This is the system-design centrepiece — a real async pipeline, not a `setTimeout` toy.
+The system-design centrepiece — a real async pipeline, not a `setTimeout` toy: a queue drained by a bounded-concurrency worker, channel-differentiated simulation, out-of-order lifecycle events, idempotent receipts reconciled by a pure state machine, retries with exponential backoff, and a dead-letter for anything that can't be delivered.
+
+<details>
+<summary><b>Engineering details + endpoints</b></summary>
+
+<br/>
 
 | Capability | Implementation |
 |---|---|
@@ -142,9 +168,6 @@ This is the system-design centrepiece — a real async pipeline, not a `setTimeo
 | **Backpressure** | Bounded in-flight receipt concurrency (`RECEIPT_CONCURRENCY`) so a campaign-sized burst can't exhaust the CRM's DB pool. |
 | **Observability** | `GET /health` exposes queue depth + throughput metrics (`eventsScheduled`, `eventsDeliveredOk`, `eventsRetried`, `eventsDeadLettered`). |
 
-<details>
-<summary><b>Endpoints & proving it handles volume</b></summary>
-
 ```
 POST /send          → 202, enqueue a single send
 POST /send/batch    → 202, a campaign of up to 5000 (independent per-recipient timelines)
@@ -152,7 +175,9 @@ POST /stress?count=N→ provision N real communications in the CRM, then drain t
 GET  /health        → status, queue depth, metrics, dead-letter size
 GET  /dead-letter   → receipts that exhausted retries
 ```
+
 `POST /stress?count=N` (also surfaced via the CRM's `/api/stress`) provisions and drains N real communications end-to-end — used to verify the pipeline under load with `eventsDeadLettered` staying at ~0.
+
 </details>
 
 ### 3 · Last-touch revenue attribution
@@ -169,9 +194,9 @@ When a communication reaches `CONVERTED`, the receipt handler creates **exactly 
 
 Intelligence at the point of *manual* decision. In `/campaigns/new`, a pure `recommendChannel()` (same learnings model — no forked aggregation) advises the best channel with a one-line reason and a confidence level: it prefers the **persona×channel** signal when a single persona is selected and grounded, falls back to the overall best, and shows a neutral cold-start state otherwise. One click sets the channel; the marketer can always override. *Advice, not automation.*
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=8B5CF6" width="100%" alt="" />
 
-## System design & tradeoffs
+## ⚖️ System design & tradeoffs
 
 The honest "I'd do X at scale, but did Y for this scope" calls — all reflected in the code:
 
@@ -184,9 +209,7 @@ The honest "I'd do X at scale, but did Y for this scope" calls — all reflected
 | **Attribution** | Last-touch, 7-day window — clarity over completeness. | Multi-touch with overlap de-dup. |
 | **LLM providers** | Provider-agnostic interface; OpenAI live, Gemini live (quota-limited), Anthropic a typed stub. | Implement the remaining adapters — the loop doesn't change. |
 
----
-
-## Tech stack
+## 🧰 Tech stack
 
 **CRM** Next.js 16 (App Router, RSC + route handlers) · React 19 · TypeScript 5 (strict) · Tailwind v4 + Radix primitives (shadcn-style) + lucide · Recharts · Prisma 6 · Supabase Postgres + Realtime · Zod
 **Channel service** Node + Express 4 · TypeScript · Zod
@@ -194,7 +217,10 @@ The honest "I'd do X at scale, but did Y for this scope" calls — all reflected
 **Tooling** npm workspaces monorepo · Vitest · ESLint · `tsx`
 **Hosting** Vercel (CRM) · Render (channel service) · Supabase (DB)
 
-### Project structure
+<details>
+<summary><b>Project structure</b></summary>
+
+<br/>
 
 ```
 xeno-loop/
@@ -221,13 +247,11 @@ xeno-loop/
 └── README.md
 ```
 
-### Tested cores
+</details>
 
-Unit tests (`npm test`) cover the parts that must not silently break: the **reducer** (out-of-order + idempotent), **funnel math**, the **learnings + recommendation** logic, the **segment filter**, the **agent loop** (mock provider), the **activity-trace** fold, and the channel service's **receipt client** + **simulator**.
+**Tested cores** (`npm test`) cover the parts that must not silently break: the **reducer** (out-of-order + idempotent), **funnel math**, the **learnings + recommendation** logic, the **segment filter**, the **agent loop** (mock provider), the **activity-trace** fold, and the channel service's **receipt client** + **simulator**.
 
----
-
-## Getting started
+## ⚡ Getting started
 
 > Secrets are referenced by **name** only — copy `.env.example` and fill values locally; never commit real values.
 
@@ -246,7 +270,10 @@ npm run dev:channel         # Express channel service on :4000
 npm test                    # run unit tests across both workspaces
 ```
 
-**Environment variables** (names only — see `.env.example`):
+<details>
+<summary><b>Environment variables</b> (names only — see <code>.env.example</code>)</summary>
+
+<br/>
 
 | Name | Purpose |
 |---|---|
@@ -258,12 +285,18 @@ npm test                    # run unit tests across both workspaces
 | `CHANNEL_SERVICE_URL` / `CRM_RECEIPTS_URL` | The two services' addresses of each other. |
 | `NEXT_PUBLIC_REALTIME_ENABLED` | `true` → Supabase Realtime funnel; else 3s polling. |
 
-Full deployment walkthrough (Render → Vercel → wire-back, env tables, gotchas) is in **[`DEPLOY.md`](./DEPLOY.md)**.
+</details>
 
----
+Full deployment walkthrough (Render → Vercel → wire-back, env tables, gotchas) is in **[`DEPLOY.md`](./DEPLOY.md)**.
 
 ## 🤖 How this was built
 
 Loop was built with heavy use of an AI coding agent (Claude Code) — agentic, plan-first, with the human reviewing and approving every step. See **[`AI-WORKFLOW.md`](./AI-WORKFLOW.md)** for how AI was used: the planning loop, the read-only-inspect-then-propose discipline, and where human judgment steered the build.
 
-<div align="center"><sub>Loop · an AI marketing co-pilot · built for the Xeno Mini CRM take-home</sub></div>
+<div align="center">
+
+<img src="https://capsule-render.vercel.app/api?type=rect&height=2&color=8B5CF6" width="100%" alt="" />
+
+<sub>Loop · an AI marketing co-pilot · built for the Xeno Mini CRM take-home</sub>
+
+</div>
