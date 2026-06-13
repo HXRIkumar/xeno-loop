@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   computeLearnings,
+  recommendChannel,
   MIN_CONFIDENT_CAMPAIGNS,
   MIN_CONFIDENT_SENT,
   type ChannelStatInput,
@@ -71,5 +72,75 @@ describe("computeLearnings", () => {
 
     const thin = computeLearnings([stat("RCS", 60, 4, 14800)], { RCS: 3 }, { persona: "New", channel: "RCS", convertedPct: 50, sent: 5 }, NOW);
     expect(thin.topPersonaChannel).toBeNull(); // sent 5 < PERSONA_MIN_SENT → dropped
+  });
+});
+
+describe("recommendChannel", () => {
+  it("cold start: no fired data → null channel, none confidence, honest reason (no fake pick)", () => {
+    const rec = recommendChannel(computeLearnings([stat("WHATSAPP", 0, 0, 0)], {}, null, NOW));
+    expect(rec.channel).toBeNull();
+    expect(rec.confidence).toBe("none");
+    expect(rec.basis).toBe("cold-start");
+    expect(rec.reason).toMatch(/no past data/i);
+  });
+
+  it("overall best (confident) → enum channel + reason citing the real % and revenue", () => {
+    const learnings = computeLearnings(
+      [stat("SMS", 80, 1, 4100), stat("RCS", 60, 4, 14800)],
+      { RCS: 3, SMS: 2 },
+      null,
+      NOW
+    );
+    const rec = recommendChannel(learnings);
+    expect(rec.channel).toBe("RCS"); // enum value, ready to set in the builder
+    expect(rec.basis).toBe("overall");
+    expect(rec.confidence).toBe("high");
+    expect(rec.reason).toContain("RCS");
+    expect(rec.reason).toContain("4%");
+    expect(rec.reason).toContain("₹14,800");
+  });
+
+  it("overall best on a thin sample → low confidence + 'limited data' phrasing", () => {
+    const learnings = computeLearnings(
+      [stat("RCS", MIN_CONFIDENT_SENT, 5, 16500)], // enough sends but only 1 campaign → low confidence
+      { RCS: MIN_CONFIDENT_CAMPAIGNS - 1 },
+      null,
+      NOW
+    );
+    const rec = recommendChannel(learnings);
+    expect(rec.channel).toBe("RCS");
+    expect(rec.confidence).toBe("low");
+    expect(rec.reason).toMatch(/early signal|limited data/i);
+  });
+
+  it("persona path: a single matching persona with a grounded signal overrides the overall best", () => {
+    // Overall best is WHATSAPP, but Dormant convert best on RCS (grounded, sent ≥ MIN_CONFIDENT_SENT).
+    const learnings = computeLearnings(
+      [stat("WHATSAPP", 90, 5, 20000), stat("RCS", 60, 3, 9000)],
+      { WHATSAPP: 3, RCS: 3 },
+      { persona: "Dormant", channel: "RCS", convertedPct: 7, sent: 40 },
+      NOW
+    );
+    expect(recommendChannel(learnings).channel).toBe("WHATSAPP"); // no persona → overall best
+
+    const rec = recommendChannel(learnings, { persona: "DORMANT" });
+    expect(rec.channel).toBe("RCS"); // persona signal wins; label "RCS" mapped back to the enum
+    expect(rec.basis).toBe("persona");
+    expect(rec.confidence).toBe("high"); // sent 40 ≥ MIN_CONFIDENT_SENT
+    expect(rec.reason).toContain("Dormant");
+    expect(rec.reason).toContain("RCS");
+    expect(rec.reason).toContain("7%");
+  });
+
+  it("persona path ignored when the selected persona doesn't match the signal → overall best", () => {
+    const learnings = computeLearnings(
+      [stat("WHATSAPP", 90, 5, 20000), stat("RCS", 60, 3, 9000)],
+      { WHATSAPP: 3, RCS: 3 },
+      { persona: "Dormant", channel: "RCS", convertedPct: 7, sent: 40 },
+      NOW
+    );
+    const rec = recommendChannel(learnings, { persona: "NEW" }); // signal is for Dormant, not New
+    expect(rec.basis).toBe("overall");
+    expect(rec.channel).toBe("WHATSAPP");
   });
 });

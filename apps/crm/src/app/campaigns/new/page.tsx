@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PersonaBadge } from "@/components/badges";
+import { ChannelRecommendation } from "@/components/channel-recommendation";
 import {
   Select,
   SelectContent,
@@ -142,6 +142,13 @@ export default function NewCampaignPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {/* Loop's confidence-aware channel advice — grounded in real past performance,
+                    persona-aware only for a single-persona audience. Advisory; one-click accept. */}
+                <ChannelRecommendation
+                  value={channel}
+                  onUse={setChannel}
+                  persona={personas.length === 1 ? personas[0] : undefined}
+                />
               </CardContent>
             </Card>
 
