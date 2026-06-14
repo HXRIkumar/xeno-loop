@@ -19,9 +19,11 @@ type ChatMsg = {
   error?: boolean;
 };
 
+// Starter chips — tap to PREFILL the input (no manual typing required to get started).
 const SUGGESTIONS = [
-  "Find me a revenue opportunity and propose a campaign.",
-  "Win back our dormant high-LTV customers.",
+  "Win back our dormant high-spenders.",
+  "Convert new customers to a second purchase.",
+  "Re-engage our discount hunters.",
   "Which channel converts best, and why?",
 ];
 
@@ -52,7 +54,14 @@ export function ChatPanel({ initialPrompt }: { initialPrompt?: string }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sentInitial = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const prefilledInitial = useRef(false);
+
+  // Prefill the input (chips + ?prompt=) — never auto-send, so the marketer reviews then sends.
+  function prefill(text: string) {
+    setInput(text);
+    inputRef.current?.focus();
+  }
 
   async function send(prompt: string) {
     const text = prompt.trim();
@@ -132,11 +141,11 @@ export function ChatPanel({ initialPrompt }: { initialPrompt?: string }) {
   }
 
   useEffect(() => {
-    if (initialPrompt && !sentInitial.current) {
-      sentInitial.current = true;
-      send(initialPrompt);
+    if (initialPrompt && !prefilledInitial.current) {
+      prefilledInitial.current = true;
+      setInput(initialPrompt);
+      inputRef.current?.focus();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPrompt]);
 
   useEffect(() => {
@@ -159,10 +168,11 @@ export function ChatPanel({ initialPrompt }: { initialPrompt?: string }) {
               </p>
             </div>
             <div className="space-y-2">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Try one — tap to start</div>
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
-                  onClick={() => send(s)}
+                  onClick={() => prefill(s)}
                   className="block w-full rounded-lg border bg-card px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
                 >
                   {s}
@@ -209,6 +219,7 @@ export function ChatPanel({ initialPrompt }: { initialPrompt?: string }) {
         className="flex items-center gap-2 border-t p-3"
       >
         <Input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask Loop to find an opportunity…"

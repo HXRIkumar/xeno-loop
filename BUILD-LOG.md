@@ -34,3 +34,32 @@ Handoff log for the showcase suite (BUILD-FEATURES.md). Branch off `dev`; **not 
 - No opportunities → friendly empty state, no crash.
 
 **Green:** `tsc` clean · 54/54 tests pass (+6) · Feature-1 files lint-clean.
+
+---
+
+## Feature 2 — First-load showcase + guided tour + discovery hooks ✅
+
+**What:** the dashboard now announces that Loop is an AI product and actively drives discovery of the agent and the Content Studio, with a replayable guided tour and chip-driven prefill on `/loop`.
+
+**Files added**
+- `src/components/capability-hero.tsx` — **2.1** dismissible first-load hero ("Loop — your AI marketing co-pilot") + 3 capability tiles that link to `/loop`, `/campaigns`, and `/campaigns/new#content-studio` (the Content Studio section). Dismiss is React state only (no storage); when dismissed it collapses to a slim bar that still offers the tour. Hosts the tour state.
+- `src/components/guided-tour.tsx` — **2.2** self-built 5-step stepper on the existing `Dialog` (no tour library). Steps mirror propose → approve → execute → attribute → learn, each with a deep link. Back/Next/Done + step dots; `motion-reduce` guards respect reduced motion.
+
+**Files changed**
+- `src/app/page.tsx` — renders `<CapabilityHero />` at the top of the dashboard.
+- `src/components/chat-panel.tsx` — **2.3**: `?prompt=` (via `initialPrompt`) now **prefills** the input and focuses it (was auto-send); starter chips updated to the spec's examples and now **prefill** the input on click (no manual typing). The agent loop itself (`lib/agent/*`) is untouched — only this presentational component changed.
+
+**Decisions (documented)**
+- **Tour is button-triggered, not auto-popped.** "Once per session" tracking would need browser storage (forbidden by the rules), and a modal on every reload would violate "never blocking." So the hero is the always-present first-load announcement, and the tour opens from the hero's "Take the tour" / the collapsed bar's "How it works" buttons — visible and replayable, never intrusive.
+- **`?prompt=` prefills (not auto-sends)** per spec 2.3 — the marketer reviews the prefilled prompt and hits send. This is a UX change to `chat-panel`, not to the agent.
+- **Feature 2.4 (the `/campaigns/new` "Generate creative in the Content Studio" nudge)** is delivered together with Feature 3, since it lives in the same builder file as the Studio section — avoids editing `campaigns/new` twice and keeps the nudge adjacent to its target. The dashboard-side discovery (the Content Studio hero tile) ships here in Feature 2.
+
+**No new pure logic → no new unit tests** for Feature 2 (it's presentational); all 54 existing tests stay green.
+
+**Verify on preview**
+- First load: hero communicates what Loop is; 3 tiles link correctly (the Studio tile lands on the builder's Studio section once Feature 3 is in).
+- "Take the tour" / "How it works" opens the 5-step modal; Back/Next/Done work; deep links navigate and close it; dismissing the hero leaves the slim "How it works" bar.
+- `/loop?prompt=…` prefills + focuses the input (no auto-send); starter chips prefill on click.
+- Responsive at 390 / 768 / 1280; reduced-motion respected; nothing blocks normal use.
+
+**Green:** `tsc` clean · 54/54 tests pass · Feature-2 files lint-clean.

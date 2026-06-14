@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Users, IndianRupee, MoonStar, ShoppingBag, ArrowRight, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
+import { CapabilityHero } from "@/components/capability-hero";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,10 @@ export default async function DashboardPage() {
       />
 
       <div className="space-y-6 p-4 sm:p-8">
+        {/* First-load capability hero + guided tour (Feature 2): announces the AI product and
+            drives discovery of the agent and the Content Studio. Dismissible, never blocking. */}
+        <CapabilityHero />
+
         {/* Opportunities Loop spotted in the data — STATEFUL: a card flips to "In progress" then
             "Addressed" once a matching campaign is fired (derived from real campaigns). */}
         <div className="space-y-3">
