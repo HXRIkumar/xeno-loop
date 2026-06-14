@@ -214,6 +214,7 @@ The honest "I'd do X at scale, but did Y for this scope" calls — all reflected
 **CRM** Next.js 16 (App Router, RSC + route handlers) · React 19 · TypeScript 5 (strict) · Tailwind v4 + Radix primitives (shadcn-style) + lucide · Recharts · Prisma 6 · Supabase Postgres + Realtime · Zod
 **Channel service** Node + Express 4 · TypeScript · Zod
 **LLM** provider-agnostic adapter (OpenAI / Groq via one OpenAI-compatible adapter, Gemini, Anthropic stub), server-side keys only
+**Content Studio images** via a provider-agnostic `ImageProvider` — for this build, creative is served from a **curated on-brand library** (honestly labelled, never implied as live generation); a real image model swaps in behind the same interface, exactly like the LLM adapters
 **Tooling** npm workspaces monorepo · Vitest · ESLint · `tsx`
 **Hosting** Vercel (CRM) · Render (channel service) · Supabase (DB)
 

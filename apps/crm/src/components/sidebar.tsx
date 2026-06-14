@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Send, BarChart3, Sparkles, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Send, BarChart3, Sparkles, Image as ImageIcon, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -11,15 +11,37 @@ const NAV = [
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/campaigns", label: "Campaigns", icon: Send },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/studio", label: "Studio", icon: ImageIcon },
   { href: "/loop", label: "Loop", icon: Sparkles },
 ];
+
+/** Brand mark — renders /public/loop-logo.svg when present, falling back to the ∞ text mark until
+ *  the owner drops the logo file in (see BUILD-LOG.md). */
+function LogoMark({ className, markClass }: { className?: string; markClass?: string }) {
+  const [ok, setOk] = useState(true);
+  if (ok) {
+    return (
+      // Brand logo from /public; onError falls back to the ∞ text mark (file dropped in later) — next/image can't fall back on a missing file.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src="/loop-logo.svg"
+        alt="Loop"
+        onError={() => setOk(false)}
+        className={cn("object-contain", className)}
+      />
+    );
+  }
+  return (
+    <div className={cn("flex items-center justify-center rounded-lg bg-primary text-primary-foreground", className)}>
+      <span className={cn("font-bold", markClass)}>∞</span>
+    </div>
+  );
+}
 
 function Brand() {
   return (
     <div className="flex items-center gap-2.5 px-5 py-5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <span className="text-base font-bold">∞</span>
-      </div>
+      <LogoMark className="h-8 w-8 rounded-lg" markClass="text-base" />
       <div className="leading-tight">
         <div className="text-sm font-semibold tracking-tight">Loop</div>
         <div className="text-[11px] text-muted-foreground">StyleArc co-pilot</div>
@@ -92,9 +114,7 @@ export function Sidebar() {
           <Menu className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="text-sm font-bold">∞</span>
-          </div>
+          <LogoMark className="h-7 w-7 rounded-lg" markClass="text-sm" />
           <span className="text-sm font-semibold tracking-tight">Loop</span>
         </div>
       </header>

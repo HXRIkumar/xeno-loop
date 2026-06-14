@@ -20,7 +20,7 @@ const TILES = [
     icon: ImageIcon,
     title: "AI Content Studio",
     body: "On-brand campaign creative in one tap.",
-    href: "/campaigns/new#content-studio",
+    href: "/studio",
   },
 ];
 

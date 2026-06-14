@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ChannelRecommendation } from "@/components/channel-recommendation";
+import { ContentStudio, CreativeThumb } from "@/components/content-studio";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import { PERSONAS, PERSONA_LABEL, CHANNELS, CHANNEL_LABEL } from "@/lib/display"
 import { inr } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { buildSegmentFilter } from "@/lib/segment-filter";
+import type { GeneratedCreative } from "@/lib/content-studio";
 import type { Persona, Channel } from "@prisma/client";
 
 type Preview = {
@@ -51,6 +53,9 @@ export default function NewCampaignPage() {
   const [previewing, setPreviewing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Content Studio creative attached to this campaign — presentation-only for now (shown in the
+  // preview). Persisting it would need an optional Campaign column; noted as a follow-up in BUILD-LOG.
+  const [creative, setCreative] = useState<GeneratedCreative | null>(null);
 
   function buildFilter() {
     return buildSegmentFilter({ personas, minDaysSinceOrder: minDays, minLtv });
@@ -223,6 +228,20 @@ export default function NewCampaignPage() {
               </CardContent>
             </Card>
 
+            {/* AI Content Studio (Feature 3) — chip-driven, discovery-critical. The nudge introduces
+                it; chips pre-select from the campaign's channel + persona so one tap on Generate works. */}
+            <div id="content-studio" className="scroll-mt-20 space-y-2">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Add on-brand creative</span> — let Loop
+                generate it. No copywriting required.
+              </p>
+              <ContentStudio
+                defaultChannel={channel}
+                defaultPersona={personas.length === 1 ? personas[0] : undefined}
+                onUse={setCreative}
+              />
+            </div>
+
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <div className="flex justify-end">
@@ -236,6 +255,15 @@ export default function NewCampaignPage() {
           <div>
             <Card className="sticky top-6">
               <CardContent className="space-y-4 p-6">
+                {creative && (
+                  <div className="space-y-2">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Campaign creative
+                    </div>
+                    <CreativeThumb key={creative.imageUrl} creative={creative} />
+                    <p className="text-xs text-muted-foreground">{creative.caption}</p>
+                  </div>
+                )}
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">
                   Audience preview
                 </div>

@@ -63,3 +63,62 @@ Handoff log for the showcase suite (BUILD-FEATURES.md). Branch off `dev`; **not 
 - Responsive at 390 / 768 / 1280; reduced-motion respected; nothing blocks normal use.
 
 **Green:** `tsc` clean · 54/54 tests pass · Feature-2 files lint-clean.
+
+---
+
+## Feature 3 — AI Content Studio ✅
+
+**What:** chip-driven, on-brand creative generation behind a provider interface (mirrors `lib/llm`). Surfaced inside the campaign builder **and** as a standalone `/studio` page + a dashboard hero tile, so it's discovered. Images come from a curated, honestly-labelled library; missing files degrade to a placeholder.
+
+**Files added**
+- `src/lib/content-studio/types.ts` — `CreativeBrief`, `GeneratedCreative`, `ImageProvider` interface (per spec; `CreativeBrief` adds an optional `nonce` for "Show another" rotation / model seed — documented superset).
+- `src/lib/content-studio/library.ts` — `CREATIVE_LIBRARY` manifest + **pure** matcher (`scoreCreative`, `rankCreatives`, `selectCreative`): theme(4) → persona(2) → channel(1), deterministic generic fallback + nonce rotation. No DB/fs → unit-testable.
+- `src/lib/content-studio/library-provider.ts` — `LibraryImageProvider` (LIVE) → returns `source:"library"`, caption, altText, promptUsed.
+- `src/lib/content-studio/model-provider.ts` — `ModelImageProvider` stub that throws `"image model not configured"` (mirrors the Anthropic LLM stub).
+- `src/lib/content-studio/index.ts` — `getImageProvider()` selected by `IMAGE_PROVIDER` env (default `library`), cached like `getProvider()`.
+- `src/lib/content-studio/library.test.ts` — 6 tests: exact match, persona/channel fallback, channel-only, rotation, generic fallback, score weighting.
+- `src/app/api/studio/generate/route.ts` — `POST` (zod-validated brief) → `getImageProvider().generate()`; 503 + honest message if a provider stub throws.
+- `src/components/content-studio.tsx` — the chip-driven panel (`ContentStudio`) + reusable `CreativeThumb` (onError placeholder). Audience + Channel chips (single-select, no typing), Generate, output card with caption + **honest badge** + Show another + Use this + visual-only thumbs.
+- `src/app/studio/page.tsx` — standalone `/studio` (no `onUse` → no "Use this").
+
+**Files changed**
+- `src/app/campaigns/new/page.tsx` — **3.4**: Content Studio section under the message field (anchor `id="content-studio"`) with the nudge "Add on-brand creative — let Loop generate it." Chips pre-select from the builder's channel + single persona. "Use this" sets a `creative` state shown in the live preview via `CreativeThumb`.
+- `src/components/capability-hero.tsx` — Content Studio hero tile now links to `/studio`.
+- `src/components/sidebar.tsx` — added a **Studio** nav item; added `LogoMark` (renders `/loop-logo.svg`, falls back to the ∞ text mark) in the desktop/drawer brand + mobile top bar.
+- `README.md` / `AI-WORKFLOW.md` — **3.6** one-line honesty note: images are a curated on-brand library; a real model swaps in behind `ImageProvider`.
+
+**Decisions (documented)**
+- **"Use this" is presentation-only.** `createCampaign` / `/api/campaigns` don't accept an image, and the spec forbids a risky migration. The chosen creative is held in builder state and shown in the preview, but **not persisted** on the campaign. *Follow-up (optional):* add a nullable `Campaign.creativeJson` (imageUrl + caption + source) column + thread it through `createCampaign` and the campaign detail view. Not done here to keep the working pipeline untouched.
+- **`CreativeBrief.nonce`** added as an optional field for rotation — keeps the single `generate(brief)` interface uniform and is a valid model seed later.
+
+### ⚠️ Assets the owner must supply (drop in, no code change needed)
+**Images → `apps/crm/public/content-studio/`** (placeholder shows until present; tags must match `library.ts`):
+
+| File | Theme | Persona | Channels |
+|---|---|---|---|
+| `winback-vip-01.png` | winback | DORMANT | WhatsApp, RCS |
+| `highspender-01.png` | loyalty | HIGH_SPENDER | RCS, WhatsApp |
+| `new-2nd-purchase-01.png` | new | NEW | WhatsApp, Email |
+| `festive-01.png` | festive | (any) | WhatsApp, RCS, Email |
+| `discount-01.png` | discount | DISCOUNT_HUNTER | SMS, WhatsApp |
+| `dormant-rcs-01.png` | winback | DORMANT | RCS |
+
+(Also listed in `apps/crm/public/content-studio/README.md`. Suggested ~1024px, 4:3 or square, PNG.)
+
+**Logo → `apps/crm/public/loop-logo.svg`** (or `.png` — update the `src` in `sidebar.tsx`'s `LogoMark` if not SVG). Until present, the sidebar shows the ∞ text mark.
+
+**Verify on preview**
+- `/campaigns/new`: Content Studio section is visible + inviting; chips pre-select from the chosen channel/persona; Generate shows on-brand creative (or placeholder until PNGs land); "Show another" rotates; honest badge present; "Use this" attaches it to the live preview.
+- Standalone `/studio` works (from the dashboard tile + sidebar **Studio**).
+- Missing image files → tasteful placeholder, never a broken image; responsive at 390 / 768 / 1280.
+- `ImageProvider` interface + library provider + model stub exist and are typed; `IMAGE_PROVIDER=model` returns the honest 503.
+
+**Green:** `tsc` clean · 60/60 tests pass (+6) · Feature-3 files lint-clean (project lint baseline unchanged: 1 pre-existing error + 2 pre-existing warnings, all in untouched files).
+
+---
+
+## Logo (all features)
+Sidebar/header renders `apps/crm/public/loop-logo.svg` with a ∞ text fallback (`sidebar.tsx` → `LogoMark`). Drop the file in; no code change needed (use `.svg`, or change the extension in `LogoMark` for `.png`).
+
+## Branch / merge
+On `feat/showcase-suite` (off `dev`). **Not merged** — `main`/`dev` untouched. Pushed for a Vercel preview. Owner reviews and merges selectively. The spec file `BUILD-FEATURES.md` and prior root docs (`BUILD-PLAN-*`, `PROJECT-REPORT.md`, `campaigns-backup-*.json`) are intentionally left untracked.
