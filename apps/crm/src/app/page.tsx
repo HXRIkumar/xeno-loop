@@ -3,9 +3,11 @@ import { Users, IndianRupee, MoonStar, ShoppingBag, ArrowRight, Sparkles } from 
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { PERSONA_LABEL, PERSONAS } from "@/lib/display";
-import { inr } from "@/lib/utils";
-import { getOpportunities } from "@/lib/agent/opportunities";
+import { inr, cn } from "@/lib/utils";
+import { getOpportunities } from "@/lib/opportunities-data";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +42,7 @@ export default async function DashboardPage() {
     prisma.customer.aggregate({ _sum: { ltv: true, totalOrders: true } }),
     prisma.customer.count({ where: { persona: "DORMANT" } }),
     prisma.customer.groupBy({ by: ["persona"], _count: true, _sum: { ltv: true } }),
-    getOpportunities(),
+    getOpportunities().catch(() => []),
   ]);
 
   const totalLtv = agg._sum.ltv ?? 0;
@@ -57,32 +59,59 @@ export default async function DashboardPage() {
       />
 
       <div className="space-y-6 p-4 sm:p-8">
-        {/* Opportunities Loop spotted in the data — click to have the agent propose one */}
-        {opportunities.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Sparkles className="h-4 w-4 text-primary" />
-              Opportunities Loop spotted
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {opportunities.map((o) => (
-                <Card key={o.id} className="flex flex-col border-primary/20">
-                  <CardContent className="flex flex-1 flex-col gap-2 p-5">
-                    <div className="font-medium">{o.title}</div>
-                    <p className="flex-1 text-sm text-muted-foreground">{o.description}</p>
-                    <div className="text-xs font-medium text-primary">{o.metric}</div>
-                    <Link
-                      href={`/loop?prompt=${encodeURIComponent(o.prompt)}`}
-                      className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                    >
-                      Ask Loop to build this <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+        {/* Opportunities Loop spotted in the data — STATEFUL: a card flips to "In progress" then
+            "Addressed" once a matching campaign is fired (derived from real campaigns). */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Opportunities Loop spotted
           </div>
-        )}
+          {opportunities.length === 0 ? (
+            <Card>
+              <CardContent className="p-5 text-sm text-muted-foreground">
+                No open opportunities right now — you&apos;re on top of your segments. Loop will surface
+                new ones as the data shifts.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {opportunities.map((o) => {
+                const addressed = o.status === "addressed";
+                return (
+                  <Card key={o.id} className={cn("flex flex-col border-primary/20", addressed && "opacity-70")}>
+                    <CardContent className="flex flex-1 flex-col gap-2 p-5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {o.segmentLabel}
+                        </span>
+                        {o.status === "in_progress" && <Badge variant="warning">In progress</Badge>}
+                        {o.status === "addressed" && <Badge variant="muted">Addressed</Badge>}
+                      </div>
+                      <div className="font-medium">{o.title}</div>
+                      <p className="flex-1 text-sm text-muted-foreground">{o.description}</p>
+                      <div className="text-xs font-medium text-primary">
+                        {o.metricPrimary} · {o.metricSecondary}
+                      </div>
+                      {o.status === "open" ? (
+                        <Button asChild size="sm" variant="outline" className="mt-1 w-fit">
+                          <Link href={`/loop?prompt=${encodeURIComponent(o.suggestedPrompt)}`}>
+                            Ask Loop <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                      ) : (
+                        <span className="mt-1 text-xs text-muted-foreground">
+                          {addressed
+                            ? "Campaign completed for this segment."
+                            : "Campaign in flight for this segment."}
+                        </span>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Kpi icon={Users} label="Customers" value={String(total)} />
